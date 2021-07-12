@@ -22,12 +22,16 @@ impl Terminal {
         }
     }
 
-    pub fn get_keys(&self) -> Keys<File> {
+    pub fn get_keys() -> Keys<File> {
         termion::get_tty().unwrap().keys()
     }
 
     pub fn write(&mut self, message: String) {
         write!(self.terminal, "{}", message).unwrap();
+    }
+
+    pub fn write_background(&mut self, pos: &Position, message: String, color: &dyn Color) {
+        self.restore_cursor_write(pos, format!("{}{}", color::Bg(color), message));
     }
 
     pub fn draw_box(&mut self, pos: &Position, color: &dyn Color) {
