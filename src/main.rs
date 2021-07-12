@@ -1,4 +1,11 @@
+mod terminal;
+mod position;
+mod tui;
+mod config;
+
 use chrono::{Date, DateTime, Local, Utc};
+
+use crate::tui::Tui;
 
 fn main() {
     // TODO learn to use chrono
@@ -11,4 +18,7 @@ fn main() {
     println!("{}", date);
     let tommorow = date.succ();
     println!("{}", tommorow);
+
+    let mut tui = Tui::new();
+    tui.start();
 }
