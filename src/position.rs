@@ -12,7 +12,12 @@ impl Position {
     }
 
     pub fn new_origin() -> Self {
-        Position::new(1, 2)
+        Position::new(1, 1)
+    }
+
+    pub fn new_center() -> Self {
+        let bound = Terminal::get_boundaries();
+        Position::new(bound.get_x() / 2, bound.get_y() / 2)
     }
 
     pub fn get_x(&self) -> u16 {
@@ -58,7 +63,7 @@ impl Position {
 
     fn respect_boundary(&self, x: u16, y: u16) -> bool {
         // Check current and future positions
-        self.is_in_boundary() && x > 0 && y > 1 && Position::new(x, y).is_in_boundary()
+        self.is_in_boundary() && Position::new(x, y).is_in_boundary()
     }
 
     pub fn is_in_boundary(&self) -> bool {
