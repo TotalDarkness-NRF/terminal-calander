@@ -1,16 +1,14 @@
 use std::process::exit;
 
 use chrono::{Date, Datelike, Local, Weekday};
-use termion::{
-    color::{self, Color},
-    event::Key,
-};
+use termion::color::{self, Color};
 
-use crate::{position::Position, terminal::Terminal};
+use crate::{config::Config, position::Position, terminal::Terminal};
 
 pub struct Tui {
     max_x: u16,
     max_y: u16,
+    config: Config,
     terminal: Terminal,
     widgets: Vec<WidgetType>,
 }
@@ -21,6 +19,7 @@ impl Tui {
         Tui {
             max_x: boundary.get_x(),
             max_y: boundary.get_y(),
+            config: Config::get_config(),
             terminal: Terminal::get_raw(),
             widgets: Vec::new(),
         }
@@ -40,9 +39,9 @@ impl Tui {
     fn tui_loop(&mut self) {
         self.draw_calendar();
         for key in Terminal::get_keys() {
-            match key.unwrap() {
-                Key::Char('q') => self.quit(),
-                _ => {}
+            let key = key.unwrap();
+            if key == self.config.quit {
+                self.quit();
             }
             self.terminal.flush();
         }
@@ -55,7 +54,7 @@ impl Tui {
         self.terminal.draw_large_box(
             Position::new_origin(),
             Position::new(22, 11),
-            &color::LightMagenta,
+            self.config.calendar_bg_color.as_ref(),
         );
 
         let mut date = Local::now().date();
@@ -69,7 +68,7 @@ impl Tui {
         let mut temp_date = date.clone();
         let mut position = Position::new(1, 1);
         for _ in 1..=7 {
-            self.widgets.push(WidgetType::TextBox(position, temp_date.format("%a").to_string(), Box::new(color::Red)));
+            self.widgets.push(WidgetType::TextBox(position, temp_date.format("%a").to_string(), Box::new(color::Red))); // Todo use weekend config
             temp_date = temp_date.succ();
             position.set_x(position.get_x() + 3);
         }
@@ -106,7 +105,7 @@ impl Tui {
         self.terminal.draw_large_box(
             Position::new_origin(),
             Position::new(self.max_x, self.max_y),
-            &color::LightBlue,
+            self.config.bg_color.as_ref(),
         );
     }
 }
