@@ -1,7 +1,10 @@
 use std::process::exit;
 
-use chrono::{Date, Datelike, Local};
-use termion::{color::{self, Color}, event::Key};
+use chrono::{Date, Datelike, Local, Weekday};
+use termion::{
+    color::{self, Color},
+    event::Key,
+};
 
 use crate::{position::Position, terminal::Terminal};
 
@@ -35,24 +38,45 @@ impl Tui {
     }
 
     fn tui_loop(&mut self) {
-        let mut center = Position::new_center();
-        let message = String::from("Hello, world!");
-        center.set_x(center.get_x() - message.chars().count() as u16 / 2);
-        self.terminal.write_background(center, message, &color::Blue);
+        self.draw_calander();
         for key in Terminal::get_keys() {
-            self.draw_calander();
             match key.unwrap() {
                 Key::Char('q') => self.quit(),
                 _ => {}
             }
+            self.terminal.flush();
         }
     }
 
     fn draw_calander(&mut self) {
-        self.terminal.draw_large_box(Position::new_origin(), Position::new(22, 11), &color::LightMagenta);
+        // Ok this works now make it more generic for any month
+        // TODO draw a proper calander
+        // Draw background of calander
+        self.terminal.draw_large_box(
+            Position::new_origin(),
+            Position::new(22, 11),
+            &color::LightMagenta,
+        );
+
         let mut date = Local::now().date();
-        let mut position = Position::new(2, 2);
-        for i in 1..=7 {
+
+        // Make first day sunday
+        // TODO maybe config should have a what is the first day
+        while date.weekday() != Weekday::Sun {
+            date = date.pred();
+        }
+        // Draw calander weekdays
+        let mut temp_date = date.clone();
+        let mut position = Position::new(1, 1);
+        for _ in 1..=7 {
+            self.widgets.push(WidgetType::TextBox(position, temp_date.format("%a").to_string(), Box::new(color::Red)));
+            temp_date = temp_date.succ();
+            position.set_x(position.get_x() + 3);
+        }
+
+        position.set(2, 2);
+        // Draw calander dates
+        for _ in 1..=30 {
             let button = Button {
                 button_data: ButtonType::CalanderDate(date),
                 start_position: position,
@@ -61,33 +85,35 @@ impl Tui {
             };
             self.widgets.push(WidgetType::Button(button));
             date = date.succ();
-            position.set_x(position.get_x() + 3);
+            if let Weekday::Sun = date.weekday() {
+                position.set(2, position.get_y() + 2);
+            } else {
+                position.set_x(position.get_x() + 3);
+            }
+            
         }
 
-        let button = Button {
-            button_data: ButtonType::TextButton("Testing".to_string()),
-            start_position: position,
-            end_position: Position::new(position.get_x() + 11, position.get_y() + 5),
-            color: Box::new(color::Black)
-        };
-        self.widgets.push(WidgetType::Button(button));
-        
         for widget in self.widgets.iter_mut() {
             match widget {
                 WidgetType::Button(button) => button.draw(&mut self.terminal),
-                WidgetType::TextBox => todo!(),
+                WidgetType::TextBox(pos, text, color) => 
+                    self.terminal.write_background(*pos, text.to_string(), color.as_ref()),
             }
         }
     }
 
     fn draw_background(&mut self) {
-        self.terminal.draw_large_box(Position::new_origin(), Position::new(self.max_x, self.max_y), &color::LightBlue);
+        self.terminal.draw_large_box(
+            Position::new_origin(),
+            Position::new(self.max_x, self.max_y),
+            &color::LightBlue,
+        );
     }
 }
 
 trait Widget {
-    fn is_pressed(&self, position: &Position) -> bool {
-        self.get_start() >= *position && self.get_end() <= *position
+    fn is_pressed(&self, position: Position) -> bool {
+        self.get_start() >= position && self.get_end() <= position
     }
 
     fn draw(&mut self, terminal: &mut Terminal);
@@ -98,7 +124,7 @@ trait Widget {
 
 enum WidgetType {
     Button(Button),
-    TextBox,
+    TextBox(Position, String, Box<dyn Color>),
 }
 
 struct Button {
@@ -126,15 +152,14 @@ impl Widget for Button {
 
     fn get_end(&self) -> Position {
         self.end_position
-    }    
+    }
 }
 
 impl Button {
     fn draw_text_button(&self, terminal: &mut Terminal, text: String) {
         let center_x: u16 = (self.end_position.get_x() + self.start_position.get_x()) / 2;
         let length: u16 = text.chars().count() as u16;
-        let center_x: u16 = 
-        if center_x >= length {
+        let center_x: u16 = if center_x >= length {
             center_x - text.chars().count() as u16 / 2
         } else {
             center_x
@@ -145,7 +170,11 @@ impl Button {
     }
 
     fn draw_calander_date(&self, terminal: &mut Terminal, date: &Date<Local>) {
-        let date = if date.day() < 10 { format!(" {}", date) } else { date.day().to_string() };
+        let date = if date.day() < 10 {
+            format!(" {}", date.day().to_string())
+        } else {
+            date.day().to_string()
+        };
         terminal.write_background(self.start_position, date, self.color.as_ref());
     }
 }
