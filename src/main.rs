@@ -1,9 +1,9 @@
 mod terminal;
 mod position;
-mod tui;
+mod calendar;
 mod config;
 
-use crate::tui::Tui;
+use crate::calendar::Tui;
 
 fn main() {
     // TODO learn to use chrono

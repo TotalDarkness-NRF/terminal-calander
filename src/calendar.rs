@@ -38,7 +38,7 @@ impl Tui {
     }
 
     fn tui_loop(&mut self) {
-        self.draw_calander();
+        self.draw_calendar();
         for key in Terminal::get_keys() {
             match key.unwrap() {
                 Key::Char('q') => self.quit(),
@@ -48,7 +48,7 @@ impl Tui {
         }
     }
 
-    fn draw_calander(&mut self) {
+    fn draw_calendar(&mut self) {
         // Ok this works now make it more generic for any month
         // TODO draw a proper calander
         // Draw background of calander
@@ -138,7 +138,7 @@ impl Widget for Button {
     fn draw(&mut self, terminal: &mut Terminal) {
         match &self.button_data {
             ButtonType::TextButton(text) => self.draw_text_button(terminal, text.to_string()),
-            ButtonType::CalanderDate(date) => self.draw_calander_date(terminal, date),
+            ButtonType::CalanderDate(date) => self.draw_calendar_date(terminal, date),
         }
     }
 
@@ -169,7 +169,7 @@ impl Button {
         terminal.write_background(Position::new(center_x, center_y), text, self.color.as_ref());
     }
 
-    fn draw_calander_date(&self, terminal: &mut Terminal, date: &Date<Local>) {
+    fn draw_calendar_date(&self, terminal: &mut Terminal, date: &Date<Local>) {
         let date = if date.day() < 10 {
             format!(" {}", date.day().to_string())
         } else {

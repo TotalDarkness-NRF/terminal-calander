@@ -1,5 +1,5 @@
 [package]
-name = "terminal-calander"
+name = "terminal-calendar"
 version = "0.1.0"
 edition = "2018"
 
