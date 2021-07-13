@@ -41,8 +41,8 @@ impl Terminal {
     pub fn draw_large_box(&mut self, start: Position, end: Position, color: &dyn Color) {
         if start < end {
             let mut cursor = Position::new_origin();
-            for y in 1..=end.get_y() {
-                for x in 1..=end.get_x() {
+            for y in start.get_y()..=end.get_y() {
+                for x in start.get_x()..=end.get_x() {
                     cursor.set(x, y);
                     self.draw_box(cursor, color);
                 }

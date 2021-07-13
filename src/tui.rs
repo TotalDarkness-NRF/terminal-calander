@@ -63,6 +63,14 @@ impl Tui {
             date = date.succ();
             position.set_x(position.get_x() + 3);
         }
+
+        let button = Button {
+            button_data: ButtonType::TextButton("Testing".to_string()),
+            start_position: position,
+            end_position: Position::new(position.get_x() + 11, position.get_y() + 5),
+            color: Box::new(color::Black)
+        };
+        self.widgets.push(WidgetType::Button(button));
         
         for widget in self.widgets.iter_mut() {
             match widget {
@@ -124,7 +132,7 @@ impl Widget for Button {
 
 impl Button {
     fn draw_text_button(&self, terminal: &mut Terminal, text: String) {
-        let center_x: u16 = (self.end_position.get_x() + self.start_position.get_x()) / 2 + 1;
+        let center_x: u16 = (self.end_position.get_x() + self.start_position.get_x()) / 2;
         let length: u16 = text.chars().count() as u16;
         let center_x: u16 = 
         if center_x >= length {
@@ -133,21 +141,8 @@ impl Button {
             center_x
         };
         let center_y: u16 = (self.end_position.get_y() + self.start_position.get_y()) / 2;
-        let color = self.color.as_ref();
-        for mut y in self.start_position.get_y()..=self.end_position.get_y() {
-            for x in self.start_position.get_x()..= self.end_position.get_x() {
-                if y == center_y && x == center_x {
-                    terminal.write_background(Position::new(center_x, center_y), text.to_string(), color);
-                    // finish it
-                    for x in x + length..=self.end_position.get_x() {
-                        terminal.draw_box(Position::new(x, y), color);
-                    }
-                    y += 1;
-                } else {
-                    terminal.draw_box(Position::new(x, y), color);
-                }
-            }
-        }
+        terminal.draw_large_box(self.start_position, self.end_position, self.color.as_ref());
+        terminal.write_background(Position::new(center_x, center_y), text, self.color.as_ref());
     }
 
     fn draw_calander_date(&self, terminal: &mut Terminal, date: &Date<Local>) {
