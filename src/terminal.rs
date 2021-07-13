@@ -30,23 +30,23 @@ impl Terminal {
         write!(self.terminal, "{}", message).unwrap();
     }
 
-    pub fn write_background(&mut self, pos: &Position, message: String, color: &dyn Color) {
+    pub fn write_background(&mut self, pos: Position, message: String, color: &dyn Color) {
         self.restore_cursor_write(pos, format!("{}{}", color::Bg(color), message));
     }
 
-    pub fn draw_box(&mut self, pos: &Position, color: &dyn Color) {
+    pub fn draw_box(&mut self, pos: Position, color: &dyn Color) {
         self.restore_cursor_write(pos, format!("{} ", color::Bg(color)));
     }
 
-    pub fn draw_char(&mut self, pos: &Position, character: char) {
+    pub fn draw_char(&mut self, pos: Position, character: char) {
         self.restore_cursor_write(pos, String::from(character));
     }
 
-    pub fn erase_box(&mut self, position: &Position) {
+    pub fn erase_box(&mut self, position: Position) {
         self.restore_cursor_write(position, " ".to_string());
     }
 
-    pub fn restore_cursor_write(&mut self, pos: &Position, message: String) {
+    pub fn restore_cursor_write(&mut self, pos: Position, message: String) {
         if pos.is_in_boundary() {
             self.write(format!(
                 "{}{}{}",
