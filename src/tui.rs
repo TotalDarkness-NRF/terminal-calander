@@ -49,18 +49,19 @@ impl Tui {
     }
 
     fn draw_calander(&mut self) {
+        self.terminal.draw_large_box(Position::new_origin(), Position::new(22, 11), &color::LightMagenta);
         let mut date = Local::now().date();
-        let mut position = Position::new_origin();
+        let mut position = Position::new(2, 2);
         for i in 1..=7 {
             let button = Button {
                 button_data: ButtonType::CalanderDate(date),
                 start_position: position,
-                end_position: Position::new(position.get_x() + 2, position.get_y()),
+                end_position: Position::new(position.get_x() + 3, position.get_y()),
                 color: Box::new(color::Black),
             };
             self.widgets.push(WidgetType::Button(button));
             date = date.succ();
-            position.set_x(position.get_x() + 2);
+            position.set_x(position.get_x() + 3);
         }
         
         for widget in self.widgets.iter_mut() {
@@ -72,14 +73,7 @@ impl Tui {
     }
 
     fn draw_background(&mut self) {
-        let mut cursor = Position::new_origin();
-        for x in 1..=self.max_x {
-            for y in 1..=self.max_y {
-                cursor.set(x, y);
-                self.terminal
-                    .draw_box(cursor, &termion::color::LightMagenta);
-            }
-        }
+        self.terminal.draw_large_box(Position::new_origin(), Position::new(self.max_x, self.max_y), &color::LightBlue);
     }
 }
 
