@@ -35,12 +35,13 @@ impl Config {
     pub fn get_config() -> Self {
         // TODO handle errors
         let mut config = Config::get_default_config();
-        let config_file = current_exe().unwrap().parent().unwrap().join("config.txt");
-        let file = File::open(config_file).unwrap();
+        let file = current_exe().unwrap().parent().unwrap().join("config.txt");
+        if !file.exists() { return config };
+        let file = File::open(file).unwrap();
         let reader = BufReader::new(file);
         for line in reader.lines() {
             let line = line.unwrap(); // TODO Ignore errors.
-            let line = line.trim().to_ascii_lowercase();
+            let line = line.trim().to_lowercase();
             if line.starts_with('#') { continue }
             let split_index;
             match line.find('=') {
