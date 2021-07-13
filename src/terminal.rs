@@ -50,14 +50,6 @@ impl Terminal {
         }
     }
 
-    pub fn draw_char(&mut self, pos: Position, character: char) {
-        self.restore_cursor_write(pos, String::from(character));
-    }
-
-    pub fn erase_box(&mut self, position: Position) {
-        self.restore_cursor_write(position, " ".to_string());
-    }
-
     pub fn restore_cursor_write(&mut self, pos: Position, message: String) {
         if pos.is_in_boundary() {
             self.write(format!(
@@ -70,7 +62,7 @@ impl Terminal {
         }
     }
 
-    pub fn clear_all(&mut self) {
+    pub fn _clear_all(&mut self) {
         self.write(format!("{}{}", clear::All, cursor::Goto::default()));
     }
 
