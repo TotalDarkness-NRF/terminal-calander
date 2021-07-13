@@ -48,7 +48,8 @@ impl Config {
                 None => continue,
             }
             let (config_var, value) = line.split_at(split_index);
-            let value = value.trim().split_at(1).1.trim();
+            let value = value.replace(" ", "").replace("=", "");
+            let value = value.trim();
             match config_var.trim() {
                 "bg_color" =>
                     config.bg_color =
