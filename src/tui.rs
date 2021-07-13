@@ -86,9 +86,8 @@ impl Tui {
 }
 
 trait Widget {
-    fn is_pressed(&self, x: u16, y: u16) -> bool {
-        self.get_start().get_x() >= x && self.get_start().get_y() >= y
-        && self.get_end().get_x()<= x && self.get_end().get_y() <= y
+    fn is_pressed(&self, position: &Position) -> bool {
+        self.get_start() >= *position && self.get_end() <= *position
     }
 
     fn draw(&mut self, terminal: &mut Terminal);

@@ -42,22 +42,6 @@ impl Position {
         self.y
     }
 
-    pub fn move_up(&mut self) -> bool {
-        self.set_y(self.y - 1)
-    }
-
-    pub fn move_down(&mut self) -> bool {
-        self.set_y(self.y + 1)
-    }
-
-    pub fn move_right(&mut self) -> bool {
-        self.set_x(self.x + 1)
-    }
-
-    pub fn move_left(&mut self) -> bool {
-        self.set_x(self.x - 1)
-    }
-
     pub fn set_x(&mut self, x: u16) -> bool {
         self.set(x, self.y)
     }
@@ -68,11 +52,9 @@ impl Position {
 
     pub fn set(&mut self, x: u16, y: u16) -> bool {
         if self.respect_boundary(x, y) {
-            self.x = x;
-            self.y = y;
-            return true;
-        }
-        false
+            self.x = x; self.y = y;
+            true
+        } else { false }
     }
 
     fn respect_boundary(&self, x: u16, y: u16) -> bool {
@@ -81,10 +63,7 @@ impl Position {
     }
 
     pub fn is_in_boundary(&self) -> bool {
-        self.x > 0 && self.y > 0 && {
-            let boundary = Terminal::get_boundaries();
-            self.x <= boundary.x && self.y <= boundary.y
-        }
+        self.x > 0 && self.y > 0 && *self <= Terminal::get_boundaries()
     }
 }
 
