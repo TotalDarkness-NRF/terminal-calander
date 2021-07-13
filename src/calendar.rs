@@ -1,7 +1,7 @@
 use std::process::exit;
 
 use chrono::{Date, Datelike, Local, Weekday};
-use termion::color::{self, Color};
+use termion::color::AnsiValue;
 
 use crate::{config::Config, position::Position, terminal::Terminal};
 
@@ -54,7 +54,7 @@ impl Tui {
         self.terminal.draw_large_box(
             Position::new_origin(),
             Position::new(22, 11),
-            self.config.calendar_bg_color.as_ref(),
+            &self.config.calendar_bg_color,
         );
 
         let mut date = Local::now().date();
@@ -68,7 +68,7 @@ impl Tui {
         let mut temp_date = date.clone();
         let mut position = Position::new(1, 1);
         for _ in 1..=7 {
-            self.widgets.push(WidgetType::TextBox(position, temp_date.format("%a").to_string(), Box::new(color::Red))); // Todo use weekend config
+            self.widgets.push(WidgetType::TextBox(position, temp_date.format("%a").to_string(), self.config.weekday_bg_color));
             temp_date = temp_date.succ();
             position.set_x(position.get_x() + 3);
         }
@@ -80,7 +80,7 @@ impl Tui {
                 button_data: ButtonType::CalanderDate(date),
                 start_position: position,
                 end_position: Position::new(position.get_x() + 3, position.get_y()),
-                color: Box::new(color::Black),
+                color: self.config.date_bg_color,
             };
             self.widgets.push(WidgetType::Button(button));
             date = date.succ();
@@ -96,7 +96,7 @@ impl Tui {
             match widget {
                 WidgetType::Button(button) => button.draw(&mut self.terminal),
                 WidgetType::TextBox(pos, text, color) => 
-                    self.terminal.write_background(*pos, text.to_string(), color.as_ref()),
+                    self.terminal.write_background(*pos, text.to_string(), color),
             }
         }
     }
@@ -105,7 +105,7 @@ impl Tui {
         self.terminal.draw_large_box(
             Position::new_origin(),
             Position::new(self.max_x, self.max_y),
-            self.config.bg_color.as_ref(),
+            &self.config.bg_color,
         );
     }
 }
@@ -123,20 +123,20 @@ trait Widget {
 
 enum WidgetType {
     Button(Button),
-    TextBox(Position, String, Box<dyn Color>),
+    TextBox(Position, String, AnsiValue),
 }
 
 struct Button {
     button_data: ButtonType,
     start_position: Position,
     end_position: Position,
-    color: Box<dyn Color>,
+    color: AnsiValue,
 }
 
 impl Widget for Button {
     fn draw(&mut self, terminal: &mut Terminal) {
         match &self.button_data {
-            ButtonType::TextButton(text) => self.draw_text_button(terminal, text.to_string()),
+            ButtonType::_TextButton(text) => self.draw_text_button(terminal, text.to_string()),
             ButtonType::CalanderDate(date) => self.draw_calendar_date(terminal, date),
         }
     }
@@ -164,8 +164,8 @@ impl Button {
             center_x
         };
         let center_y: u16 = (self.end_position.get_y() + self.start_position.get_y()) / 2;
-        terminal.draw_large_box(self.start_position, self.end_position, self.color.as_ref());
-        terminal.write_background(Position::new(center_x, center_y), text, self.color.as_ref());
+        terminal.draw_large_box(self.start_position, self.end_position, &self.color);
+        terminal.write_background(Position::new(center_x, center_y), text, &self.color);
     }
 
     fn draw_calendar_date(&self, terminal: &mut Terminal, date: &Date<Local>) {
@@ -174,11 +174,11 @@ impl Button {
         } else {
             date.day().to_string()
         };
-        terminal.write_background(self.start_position, date, self.color.as_ref());
+        terminal.write_background(self.start_position, date, &self.color);
     }
 }
 
 enum ButtonType {
-    TextButton(String),
+    _TextButton(String), // TODO
     CalanderDate(Date<Local>),
 }
