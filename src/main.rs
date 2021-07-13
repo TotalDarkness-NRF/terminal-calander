@@ -3,7 +3,7 @@ mod position;
 mod tui;
 mod config;
 
-use chrono::{Date, DateTime, Local, Utc};
+use chrono::{Date, DateTime, Datelike, Local, Utc};
 
 use crate::tui::Tui;
 
@@ -15,7 +15,7 @@ fn main() {
     let date: Date<Local> = local.date();
     println!("{}", utc);
     println!("{}", local);
-    println!("{}", date);
+    println!("{}", date.day());
     let tommorow = date.succ();
     println!("{}", tommorow);
 
