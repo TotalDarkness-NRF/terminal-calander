@@ -6,7 +6,7 @@ pub struct Calendar {
     start_date: Date<Local>,
     position: Position,
     widgets: Vec<WidgetType>,
-    cursor: usize,
+    pub cursor: usize,
 }
 
 impl Calendar {
@@ -77,37 +77,39 @@ impl Calendar {
         }
     }
 
-    fn select_button(&mut self, config: &mut Config, index_from: usize, index_to: usize) -> Option<usize> {
-        // TODO change cursor value here and then change the buttons colors here as well
-        // Or we can return the previous button or change buttons later?
-        // TODO draw buttons here maybe. Also would have to pass terminal here
-        match self.widgets.get_mut(index_from) {
-            Some(widget) => 
-            match widget {
-                WidgetType::Button(button) => 
-                match button.button_data {
-                    ButtonType::_TextButton(_) => todo!("Set config for text buttons"),
-                    ButtonType::CalanderDate(_) => button.color = config.date_bg_color,
-                }
-                WidgetType::TextBox(_, _, _) => (),
-            },
-            None => return None,
-        }
-        let iter = self.widgets.iter_mut();
-        for (i, widget) in iter.skip(index_to).enumerate() {
+    pub fn select_button(&mut self, config: &mut Config, terminal: &mut Terminal, index_to: usize) {
+        if index_to >= self.widgets.len() { return; } // TODO maybe use directions later
+        self.unselect_button(config, terminal);
+        let iter = self.widgets.iter_mut().skip(index_to);
+        for (i, widget) in iter.enumerate() {
             if let WidgetType::Button(button) = widget {
                 button.color = config.select_bg_color;
-                return Some(i + index_to);
+                button.draw(terminal);
+                
+                self.cursor = i + index_to;
+                break;
             }
         }
-        None
     }
 
-    fn get_select_index(&mut self, config: &mut Config, index_from: usize, index_to: usize) -> usize {
-        // TODO we might not need this we could change directly in select button the values
-        match self.select_button(config, index_from, index_to) {
-            Some(value) => value,
-            None => self.select_button(config, 0, 0).unwrap_or(0),
+    pub fn unselect_button(&mut self, config: &mut Config, terminal: &mut Terminal) {
+        match self.widgets.get_mut(self.cursor) {
+            Some(widget) => 
+            match widget {
+                WidgetType::Button(button) => {
+                    match button.button_data {
+                        ButtonType::_TextButton(_) => (), // todo
+                        ButtonType::CalanderDate(_) => {
+                            button.color = config.date_bg_color;
+                           
+                        }
+                    }
+                    button.draw(terminal);
+                }
+               
+                WidgetType::TextBox(_, _, _) => (),
+            },
+            None => return,
         }
     }
 }

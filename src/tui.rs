@@ -38,33 +38,24 @@ impl Tui {
 
     fn tui_loop(&mut self) {
         // TODO make calanders and add to our list. Then draw and keep track of the selected one
-        //self.draw_calendar();
-        //let mut cursor_index = self.select_button(0, 0).unwrap_or(0);
         self.create_calendars();
         self.draw_calendars();
+        let index: usize = 0; // TODO allow this to be changed
         for key in Terminal::get_keys() {
             let key = key.unwrap();
             //let prev_cursor_pos = cursor_index;
             // TODO do selecting of dates on buttons!
             if key == self.config.quit {
-                self.quit();
+               self.quit();
             }
             else if key == self.config.left {
-                // allow for looping back left like right?
-                //cursor_index = self.get_select_index(cursor_index, cursor_index - 1);
+                let calendar =  self.calendars.get_mut(index).unwrap(); // TODO make sure we check for incorrect index
+                calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor - 1);
             }
             else if key == self.config.right {
-                //cursor_index = self.get_select_index(cursor_index, cursor_index + 1);
+                let calendar = self.calendars.get_mut(index).unwrap();
+                calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor + 1);
             }
-
-            /* 
-            if let WidgetType::Button(button) = self.widgets.get_mut(prev_cursor_pos).unwrap() {
-                button.draw(&mut self.terminal);
-            }
-            if let WidgetType::Button(button) = self.widgets.get_mut(cursor_index).unwrap() {
-                button.draw(&mut self.terminal);
-            }
-            */
             self.terminal.flush();
         }
     }
