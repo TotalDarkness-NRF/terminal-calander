@@ -1,9 +1,9 @@
 mod terminal;
 mod position;
-mod calendar;
+mod tui;
 mod config;
 
-use crate::calendar::Tui;
+use crate::tui::Tui;
 
 fn main() {
     Tui::new().start();
