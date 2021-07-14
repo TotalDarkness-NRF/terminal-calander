@@ -10,7 +10,7 @@ pub struct Tui {
     max_y: u16,
     config: Config,
     terminal: Terminal,
-    widgets: Vec<WidgetType>,
+    widgets: Vec<WidgetType>, // TODO this might have to be for each individual calendar, instead have a vec of calendars
 }
 
 impl Tui {
@@ -80,25 +80,34 @@ impl Tui {
             &self.config.calendar_bg_color,
         );
 
-        let mut date = Local::now().date();
-
-        // Make first day sunday
-        // TODO maybe config should have a what is the first day
+        let mut date = Local::today();
         while date.weekday() != Weekday::Sun {
             date = date.pred();
         }
+        // TODO maybe config should have a what is the first day
+        
         // Draw calander weekdays
-        let mut temp_date = date.clone();
         let mut position = Position::new(1, 1);
         for _ in 1..=7 {
-            self.widgets.push(WidgetType::TextBox(position, temp_date.format("%a").to_string(), self.config.weekday_bg_color));
-            temp_date = temp_date.succ();
+            self.widgets.push(WidgetType::TextBox(position, date.format("%a").to_string(), self.config.weekday_bg_color));
+            date = date.succ();
             position.set_x(position.get_x() + 3);
         }
-
-        position.set(2, 2);
+        date = date.with_day(1).unwrap();
+        position.set(2 + 3 * (date.weekday().number_from_sunday() as u16 - 1), 2); // TODO make the x calc a function
+        // Count days in a month
+        let days = {
+            let mut date = date.clone();
+            let mut days = 0;
+            let month = date.month();
+            while month == date.month() {
+                days += 1;
+                date = date.succ();
+            }
+            days
+        };
         // Draw calendar dates
-        for _ in 1..=30 {
+        for _ in 1..=days {
             let button = Button {
                 button_data: ButtonType::CalanderDate(date),
                 start_position: position,
@@ -110,7 +119,7 @@ impl Tui {
             if let Weekday::Sun = date.weekday() {
                 position.set(2, position.get_y() + 2);
             } else {
-                position.set_x(position.get_x() + 3);
+                position.set_x(2 + 3 * (date.weekday().number_from_sunday() as u16 - 1));
             }
             
         }

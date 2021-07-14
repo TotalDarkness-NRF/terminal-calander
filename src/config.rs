@@ -34,13 +34,15 @@ pub struct Config {
     pub left: Key,
     pub down: Key,
     pub right: Key,
+    // TODO have buttons to move calander right left etc
 }
 
 impl Config {
     pub fn get_config() -> Self {
         // TODO handle errors
         let mut config = Config::get_default_config();
-        let file = env::current_exe().unwrap().parent().unwrap().join("config.txt");
+        let file = env::current_exe().unwrap().parent().unwrap().join("config.txt"); 
+        // TODO this path is dumb. Instead store it either in .cofing, in current_dir() or specified by user
         if !file.exists() { return config };
         let file = File::open(file).unwrap();
         let reader = BufReader::new(file);
