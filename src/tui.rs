@@ -48,16 +48,10 @@ impl Tui {
             }
             else if key == self.config.left {
                 // allow for looping back left like right?
-                cursor_index = match self.select_button(cursor_index, cursor_index - 1) {
-                    Ok(index) => index,
-                    Err(_) => self.select_button(0, 0).unwrap_or(0),
-                }
+                cursor_index = self.get_select_index(cursor_index, cursor_index - 1);
             }
             else if key == self.config.right {
-                cursor_index = match self.select_button(cursor_index, cursor_index + 1) {
-                    Ok(index) => index,
-                    Err(_) => self.select_button(0, 0).unwrap_or(0),
-                }
+                cursor_index = self.get_select_index(cursor_index, cursor_index + 1);
             }
 
             if let WidgetType::Button(button) = self.widgets.get_mut(prev_cursor_pos).unwrap() {
@@ -141,7 +135,8 @@ impl Tui {
         );
     }
 
-    fn select_button(&mut self, index_from: usize, index_to: usize) -> Result<usize, ()> {
+    fn select_button(&mut self, index_from: usize, index_to: usize) -> Option<usize> {
+        // TODO draw buttons here maybe. Also would have to pass terminal here
         match self.widgets.get_mut(index_from) {
             Some(widget) => 
             match widget {
@@ -152,16 +147,23 @@ impl Tui {
                 }
                 WidgetType::TextBox(_, _, _) => (),
             },
-            None => return Err(()),
+            None => return None,
         }
         let iter = self.widgets.iter_mut();
         for (i, widget) in iter.skip(index_to).enumerate() {
             if let WidgetType::Button(button) = widget {
                 button.color = self.config.select_bg_color;
-                return Ok(i + index_to);
+                return Some(i + index_to);
             }
         }
-        Err(())
+        None
+    }
+
+    fn get_select_index(&mut self, index_from: usize, index_to: usize) -> usize {
+        match self.select_button(index_from, index_to) {
+            Some(value) => value,
+            None => self.select_button(0, 0).unwrap_or(0),
+        }
     }
 }
 
