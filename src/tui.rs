@@ -37,10 +37,9 @@ impl Tui {
     }
 
     fn tui_loop(&mut self) {
-        // TODO make calanders and add to our list. Then draw and keep track of the selected one
         self.create_calendars();
         self.draw_calendars();
-        let index: usize = 0; // TODO allow this to be changed
+        let mut index: usize = 0;
         for key in Terminal::get_keys() {
             let key = key.unwrap();
             //let prev_cursor_pos = cursor_index;
@@ -55,6 +54,26 @@ impl Tui {
             else if key == self.config.right {
                 let calendar = self.calendars.get_mut(index).unwrap();
                 calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor + 1);
+            }
+            else if key == self.config.calendar_left {
+                if index > 0 {
+                    let calendar = self.calendars.get_mut(index).unwrap();
+                    calendar.unselect_button(&mut self.config, &mut self.terminal);
+                    index -= 1;
+                    // TODO maybe config option to remove curosr on that calendar?
+                    // TODO maybe config option to reset cursor?
+                    let calendar = self.calendars.get_mut(index).unwrap();
+                    calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
+                }
+            }
+            else if key == self.config.calendar_right {
+                if index + 1 < self.calendars.len() {
+                    let calendar = self.calendars.get_mut(index).unwrap();
+                    calendar.unselect_button(&mut self.config, &mut self.terminal);
+                    index += 1;
+                    let calendar = self.calendars.get_mut(index).unwrap();
+                    calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
+                }
             }
             self.terminal.flush();
         }

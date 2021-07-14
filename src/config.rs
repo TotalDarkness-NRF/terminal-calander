@@ -34,6 +34,10 @@ pub struct Config {
     pub left: Key,
     pub down: Key,
     pub right: Key,
+    pub calendar_up: Key,
+    pub calendar_left: Key,
+    pub calendar_right: Key,
+    pub calendar_down: Key,
     // TODO have buttons to move calander right left etc
 }
 
@@ -93,6 +97,10 @@ impl Config {
             left: Key::Char('a'),
             down: Key::Char('s'),
             right: Key::Char('d'),
+            calendar_up: Key::Char('W'),
+            calendar_left: Key::Char('A'),
+            calendar_down: Key::Char('S'),
+            calendar_right: Key::Char('D'),
         }
     }
 }
