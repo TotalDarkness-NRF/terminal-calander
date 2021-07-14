@@ -15,12 +15,11 @@ impl Calendar {
     }
 
     pub fn draw(&mut self, terminal: &mut Terminal, config: &mut Config) {
-         // Ok this works now make it more generic for any month
         // TODO draw a proper calendar
         // Draw background of calendar
         terminal.draw_large_box(
-            Position::new_origin(),
-            Position::new(22, 11),
+            self.position,
+            Position::new(self.position.get_x() + 21, self.position.get_y() + 11),
             &config.calendar_bg_color,
         );
 
@@ -31,15 +30,16 @@ impl Calendar {
         // TODO maybe config should have a what is the first day
         
         // Draw calander weekdays
-        let mut position = self.position; // TODO dont make it fixed
+        let mut position = self.position;
         let mut weekdays = String::new();
         for _ in 1..=7 {
             weekdays.push_str(date.format("%a").to_string().as_str());
             date = date.succ();
         }
+        weekdays.push(' ');
         self.widgets.push(WidgetType::TextBox(position, weekdays, config.weekday_bg_color));
-        date = self.start_date.clone(); //date.with_day(1).unwrap().with_month(self.month).unwrap();
-        position.set(2 + 3 * (date.weekday().number_from_sunday() as u16 - 1), 2); // TODO make the x calc a function
+        date = self.start_date.clone();
+        position.set(self.position.get_x() + 1 + 3 * (date.weekday().number_from_sunday() as u16 - 1), self.position.get_y() + 1); // TODO make the x calc a function
         // Count days in a month
         let days = {
             let mut date = date.clone();
@@ -61,9 +61,9 @@ impl Calendar {
             self.widgets.push(WidgetType::Button(button));
             date = date.succ();
             if let Weekday::Sun = date.weekday() {
-                position.set(2, position.get_y() + 2);
+                position.set(self.position.get_x() + 1, position.get_y() + 2);
             } else {
-                position.set_x(2 + 3 * (date.weekday().number_from_sunday() as u16 - 1));
+                position.set_x(self.position.get_x() + 1 + 3 * (date.weekday().number_from_sunday() as u16 - 1));
             }
             
         }
@@ -78,6 +78,8 @@ impl Calendar {
     }
 
     fn select_button(&mut self, config: &mut Config, index_from: usize, index_to: usize) -> Option<usize> {
+        // TODO change cursor value here and then change the buttons colors here as well
+        // Or we can return the previous button or change buttons later?
         // TODO draw buttons here maybe. Also would have to pass terminal here
         match self.widgets.get_mut(index_from) {
             Some(widget) => 
