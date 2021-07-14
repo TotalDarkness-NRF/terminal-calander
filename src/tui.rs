@@ -78,8 +78,14 @@ impl Tui {
     }
 
     fn create_calendars(&mut self) {
-        let calendar = Calendar::new(Local::today().with_day(1).unwrap(), Position::new_origin());
+        let mut date = Local::today().with_day(1).unwrap();
+        let mut position = Position::new_origin();
+        for _ in 0..=3 {
+        let calendar = Calendar::new(date, position);
         self.calendars.push(calendar);
+        date = date.with_month(date.month() + 1).unwrap(); // TODO wont work if above 12, just for testing now
+        position.set_x(position.get_x() + 24);
+        }
     }
 
     fn draw_calendars(&mut self) {
