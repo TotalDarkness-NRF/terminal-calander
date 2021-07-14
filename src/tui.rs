@@ -40,6 +40,8 @@ impl Tui {
         // TODO make calanders and add to our list. Then draw and keep track of the selected one
         //self.draw_calendar();
         //let mut cursor_index = self.select_button(0, 0).unwrap_or(0);
+        self.create_calendars();
+        self.draw_calendars();
         for key in Terminal::get_keys() {
             let key = key.unwrap();
             //let prev_cursor_pos = cursor_index;
@@ -73,6 +75,17 @@ impl Tui {
             Position::new(self.max_x, self.max_y),
             &self.config.bg_color,
         );
+    }
+
+    fn create_calendars(&mut self) {
+        let calendar = Calendar::new(Local::today().with_day(1).unwrap(), Position::new_origin());
+        self.calendars.push(calendar);
+    }
+
+    fn draw_calendars(&mut self) {
+        for calendar in self.calendars.iter_mut() {
+            calendar.draw(&mut self.terminal, &mut self.config);
+        }
     }
 }
 
