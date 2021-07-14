@@ -38,10 +38,33 @@ impl Tui {
 
     fn tui_loop(&mut self) {
         self.draw_calendar();
+        let mut cursor_index = self.select_button(0, 0).unwrap_or(0);
         for key in Terminal::get_keys() {
             let key = key.unwrap();
+            let prev_cursor_pos = cursor_index;
+            // TODO do selecting of dates on buttons!
             if key == self.config.quit {
                 self.quit();
+            }
+            else if key == self.config.left {
+                // allow for looping back left like right?
+                cursor_index = match self.select_button(cursor_index, cursor_index - 1) {
+                    Ok(index) => index,
+                    Err(_) => self.select_button(0, 0).unwrap_or(0),
+                }
+            }
+            else if key == self.config.right {
+                cursor_index = match self.select_button(cursor_index, cursor_index + 1) {
+                    Ok(index) => index,
+                    Err(_) => self.select_button(0, 0).unwrap_or(0),
+                }
+            }
+
+            if let WidgetType::Button(button) = self.widgets.get_mut(prev_cursor_pos).unwrap() {
+                button.draw(&mut self.terminal);
+            }
+            if let WidgetType::Button(button) = self.widgets.get_mut(cursor_index).unwrap() {
+                button.draw(&mut self.terminal);
             }
             self.terminal.flush();
         }
@@ -49,8 +72,8 @@ impl Tui {
 
     fn draw_calendar(&mut self) {
         // Ok this works now make it more generic for any month
-        // TODO draw a proper calander
-        // Draw background of calander
+        // TODO draw a proper calendar
+        // Draw background of calendar
         self.terminal.draw_large_box(
             Position::new_origin(),
             Position::new(22, 11),
@@ -74,7 +97,7 @@ impl Tui {
         }
 
         position.set(2, 2);
-        // Draw calander dates
+        // Draw calendar dates
         for _ in 1..=30 {
             let button = Button {
                 button_data: ButtonType::CalanderDate(date),
@@ -108,10 +131,33 @@ impl Tui {
             &self.config.bg_color,
         );
     }
+
+    fn select_button(&mut self, index_from: usize, index_to: usize) -> Result<usize, ()> {
+        match self.widgets.get_mut(index_from) {
+            Some(widget) => 
+            match widget {
+                WidgetType::Button(button) => 
+                match button.button_data {
+                    ButtonType::_TextButton(_) => todo!("Set config for text buttons"),
+                    ButtonType::CalanderDate(_) => button.color = self.config.date_bg_color,
+                }
+                WidgetType::TextBox(_, _, _) => (),
+            },
+            None => return Err(()),
+        }
+        let iter = self.widgets.iter_mut();
+        for (i, widget) in iter.skip(index_to).enumerate() {
+            if let WidgetType::Button(button) = widget {
+                button.color = self.config.select_bg_color;
+                return Ok(i + index_to);
+            }
+        }
+        Err(())
+    }
 }
 
 trait Widget {
-    fn is_pressed(&self, position: Position) -> bool {
+    fn is_hovered(&self, position: Position) -> bool {
         self.get_start() >= position && self.get_end() <= position
     }
 

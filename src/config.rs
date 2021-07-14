@@ -1,4 +1,4 @@
-use std::{env::current_exe,fs::File,io::{BufRead, BufReader}};
+use std::{env,fs::File,io::{BufRead, BufReader}};
 
 use termion::{color::AnsiValue, event::Key};
 
@@ -28,14 +28,19 @@ pub struct Config {
     pub date_bg_color: AnsiValue,
     pub date_num_color: AnsiValue,
     pub weekday_bg_color: AnsiValue,
+    pub select_bg_color: AnsiValue,
     pub quit: Key,
+    pub up: Key,
+    pub left: Key,
+    pub down: Key,
+    pub right: Key,
 }
 
 impl Config {
     pub fn get_config() -> Self {
         // TODO handle errors
         let mut config = Config::get_default_config();
-        let file = current_exe().unwrap().parent().unwrap().join("config.txt");
+        let file = env::current_exe().unwrap().parent().unwrap().join("config.txt");
         if !file.exists() { return config };
         let file = File::open(file).unwrap();
         let reader = BufReader::new(file);
@@ -72,7 +77,10 @@ impl Config {
                     config.weekday_bg_color =
                         parse_color(value)
                         .unwrap_or(config.weekday_bg_color),
-                        // TODO Keys
+                "select_bg_color" => config.select_bg_color =
+                parse_color(value)
+                .unwrap_or(config.select_bg_color),
+                // TODO Keys
                 _ => continue,
             }
         }
@@ -86,7 +94,12 @@ impl Config {
             date_bg_color: AnsiValue(0),
             date_num_color: AnsiValue(7),
             weekday_bg_color: AnsiValue(9),
+            select_bg_color: AnsiValue(5),
             quit: Key::Char('q'),
+            up: Key::Char('w'),
+            left: Key::Char('a'),
+            down: Key::Char('s'),
+            right: Key::Char('d'),
         }
     }
 }
