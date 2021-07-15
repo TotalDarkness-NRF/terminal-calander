@@ -99,7 +99,7 @@ impl Config {
             date_bg_color: AnsiValue(0),
             text_button_bg_color: AnsiValue(6),
             date_num_color: AnsiValue(7),
-            month_text_color: AnsiValue(15),
+            month_text_color: AnsiValue(7),
             weekday_bg_color: AnsiValue(9),
             select_bg_date_color: AnsiValue(5),
             select_bg_text_button_color: AnsiValue(13),

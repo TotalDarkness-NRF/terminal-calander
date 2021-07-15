@@ -1,6 +1,6 @@
 use chrono::{Date, Datelike, Local, Weekday};
 
-use crate::{config::Config, position::Position, terminal::Terminal, tui::{Button, ButtonType, TextBox, Widget}};
+use crate::{config::Config, position::{Direction, Position}, terminal::Terminal, tui::{Button, ButtonType, TextBox, Widget}};
 
 pub struct Calendar {
     start_date: Date<Local>,
@@ -81,9 +81,31 @@ impl Calendar {
         }
     }
 
+    pub fn move_cursor(&mut self, config: &mut Config, terminal: &mut Terminal, direction: Direction) {
+        let index_to = match direction {
+            Direction::Up => {
+                if self.cursor <= 7 { 0 }
+                else { self.cursor - 7 }
+            },
+            Direction::Down => {
+                if self.cursor + 7 >= self.buttons.len() { self.buttons.len() - 1 }
+                else { self.cursor + 7 }
+            },
+            Direction::Left => {
+                if self.cursor == 0 { 0 }
+                else { self.cursor - 1 }
+            },
+            Direction::Right => {
+                if self.cursor + 1 >= self.buttons.len() { self.buttons.len() - 1 }
+                else { self.cursor + 1 }
+            },
+        };
+        self.select_button(config, terminal, index_to);
+    }
+
     pub fn select_button(&mut self, config: &mut Config, terminal: &mut Terminal, index_to: usize) {
-        if index_to >= self.buttons.len() { return; } // TODO maybe use directions later
-        self.unselect_button(config, terminal);
+        if index_to >= self.buttons.len() { return; }
+        if self.cursor != index_to { self.unselect_button(config, terminal) };
         let button = self.buttons.iter_mut().skip(index_to).next();
         match button {
             Some(button) => {

@@ -3,7 +3,7 @@ use std::process::exit;
 use chrono::{Date, Datelike, Local};
 use termion::color::AnsiValue;
 
-use crate::{calendar::Calendar, config::Config, position::Position, terminal::{Formatter, Terminal}};
+use crate::{calendar::Calendar, config::Config, position::{Direction, Position}, terminal::{Formatter, Terminal}};
 
 pub struct Tui {
     max_x: u16,
@@ -47,13 +47,19 @@ impl Tui {
             }
             else if key == self.config.left {
                 let calendar =  self.calendars.get_mut(index).unwrap(); // TODO make sure we check for incorrect index
-                if calendar.cursor > 0 {
-                    calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor - 1);
-                }
+                calendar.move_cursor(&mut self.config, &mut self.terminal, Direction::Left);
             }
             else if key == self.config.right {
                 let calendar = self.calendars.get_mut(index).unwrap();
-                calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor + 1);
+                calendar.move_cursor(&mut self.config, &mut self.terminal, Direction::Right);
+            }
+            else if key == self.config.up {
+                let calendar = self.calendars.get_mut(index).unwrap();
+                calendar.move_cursor(&mut self.config, &mut self.terminal, Direction::Up);
+            }
+            else if key == self.config.down {
+                let calendar = self.calendars.get_mut(index).unwrap();
+                calendar.move_cursor(&mut self.config, &mut self.terminal, Direction::Down);
             }
             else if key == self.config.calendar_left {
                 if index > 0 {
