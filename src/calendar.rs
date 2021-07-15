@@ -134,4 +134,8 @@ impl Calendar {
             None => (),
         }
     }
+
+    pub fn get_position(&self) -> &Position {
+        &self.position
+    }
 }
