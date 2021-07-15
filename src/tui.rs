@@ -73,6 +73,8 @@ impl Tui {
                     calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
                 }
             }
+
+            // TODO make a new function to handle these and just sepcify direction
             else if key == self.config.calendar_right {
                 if index + 1 < self.calendars.len() {
                     let calendar = self.calendars.get_mut(index).unwrap();
@@ -85,8 +87,45 @@ impl Tui {
                     calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
                 }
             }
+            else if key == self.config.calendar_up {
+                let x: usize = self.get_num_columns();
+                if index > 0 && index >= x {
+                    let calendar = self.calendars.get_mut(index).unwrap();
+                    if self.config.unselect_change_calendar_cursor || self.config.change_calendar_reset_cursor { // Only allow if we want to unselect or reset cursor
+                        calendar.unselect_button(&mut self.config, &mut self.terminal);
+                    }
+                    
+                    index = index - x;
+                    if self.config.change_calendar_reset_cursor { calendar.cursor = 0; }
+                    let calendar = self.calendars.get_mut(index).unwrap();
+                    calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
+                }
+            }
+            else if key == self.config.calendar_down {
+                let x: usize = self.get_num_columns();
+                if index + x < self.calendars.len() {
+                    let calendar = self.calendars.get_mut(index).unwrap();
+                    if self.config.unselect_change_calendar_cursor || self.config.change_calendar_reset_cursor { // Only allow if we want to unselect or reset cursor
+                        calendar.unselect_button(&mut self.config, &mut self.terminal);
+                    }
+                    
+                    index = index + x;
+                    if self.config.change_calendar_reset_cursor { calendar.cursor = 0; }
+                    let calendar = self.calendars.get_mut(index).unwrap();
+                    calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
+                }
+            }
             self.terminal.flush();
         }
+    }
+
+    fn get_num_columns(&self) -> usize {
+        if self.calendars.is_empty() { return 0; }
+        let first_y = self.calendars.first().unwrap().get_position().get_y();
+        for (i, calendar) in self.calendars.iter().enumerate() {
+            if calendar.get_position().get_y() != first_y { return i };
+        }
+        self.calendars.len()
     }
 
     fn draw_background(&mut self) {
