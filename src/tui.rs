@@ -1,16 +1,16 @@
 use std::process::exit;
 
-use chrono::{Date, Datelike, Local, Weekday};
+use chrono::{Date, Datelike, Local};
 use termion::color::AnsiValue;
 
-use crate::{config::Config, position::Position, terminal::Terminal};
+use crate::{calendar::Calendar, config::Config, position::Position, terminal::Terminal};
 
 pub struct Tui {
     max_x: u16,
     max_y: u16,
     config: Config,
     terminal: Terminal,
-    widgets: Vec<WidgetType>, // TODO this might have to be for each individual calendar, instead have a vec of calendars
+    calendars: Vec<Calendar>,
 }
 
 impl Tui {
@@ -21,7 +21,7 @@ impl Tui {
             max_y: boundary.get_y(),
             config: Config::get_config(),
             terminal: Terminal::get_raw(),
-            widgets: Vec::new(),
+            calendars: Vec::new(),
         }
     }
 
@@ -37,93 +37,46 @@ impl Tui {
     }
 
     fn tui_loop(&mut self) {
-        self.draw_calendar();
-        let mut cursor_index = self.select_button(0, 0).unwrap_or(0);
+        self.create_calendars();
+        self.draw_calendars();
+        let mut index: usize = 0;
         for key in Terminal::get_keys() {
             let key = key.unwrap();
-            let prev_cursor_pos = cursor_index;
-            // TODO do selecting of dates on buttons!
             if key == self.config.quit {
-                self.quit();
+               self.quit();
             }
             else if key == self.config.left {
-                // allow for looping back left like right?
-                cursor_index = self.get_select_index(cursor_index, cursor_index - 1);
+                let calendar =  self.calendars.get_mut(index).unwrap(); // TODO make sure we check for incorrect index
+                if calendar.cursor > 0 {
+                    calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor - 1);
+                }
             }
             else if key == self.config.right {
-                cursor_index = self.get_select_index(cursor_index, cursor_index + 1);
+                let calendar = self.calendars.get_mut(index).unwrap();
+                calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor + 1);
             }
-
-            if let WidgetType::Button(button) = self.widgets.get_mut(prev_cursor_pos).unwrap() {
-                button.draw(&mut self.terminal);
+            else if key == self.config.calendar_left {
+                if index > 0 {
+                    let calendar = self.calendars.get_mut(index).unwrap();
+                    calendar.unselect_button(&mut self.config, &mut self.terminal);
+                    index -= 1;
+                    // TODO maybe config option to remove curosr on that calendar?
+                    if self.config.change_calendar_reset_cursor { calendar.cursor = 0 };
+                    let calendar = self.calendars.get_mut(index).unwrap();
+                    calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
+                }
             }
-            if let WidgetType::Button(button) = self.widgets.get_mut(cursor_index).unwrap() {
-                button.draw(&mut self.terminal);
+            else if key == self.config.calendar_right {
+                if index + 1 < self.calendars.len() {
+                    let calendar = self.calendars.get_mut(index).unwrap();
+                    calendar.unselect_button(&mut self.config, &mut self.terminal);
+                    index += 1;
+                    if self.config.change_calendar_reset_cursor { calendar.cursor = 0 };
+                    let calendar = self.calendars.get_mut(index).unwrap();
+                    calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
+                }
             }
             self.terminal.flush();
-        }
-    }
-
-    fn draw_calendar(&mut self) {
-        // Ok this works now make it more generic for any month
-        // TODO draw a proper calendar
-        // Draw background of calendar
-        self.terminal.draw_large_box(
-            Position::new_origin(),
-            Position::new(22, 11),
-            &self.config.calendar_bg_color,
-        );
-
-        let mut date = Local::today();
-        while date.weekday() != Weekday::Sun {
-            date = date.pred();
-        }
-        // TODO maybe config should have a what is the first day
-        
-        // Draw calander weekdays
-        let mut position = Position::new(1, 1);
-        for _ in 1..=7 {
-            self.widgets.push(WidgetType::TextBox(position, date.format("%a").to_string(), self.config.weekday_bg_color));
-            date = date.succ();
-            position.set_x(position.get_x() + 3);
-        }
-        date = date.with_day(1).unwrap();
-        position.set(2 + 3 * (date.weekday().number_from_sunday() as u16 - 1), 2); // TODO make the x calc a function
-        // Count days in a month
-        let days = {
-            let mut date = date.clone();
-            let mut days = 0;
-            let month = date.month();
-            while month == date.month() {
-                days += 1;
-                date = date.succ();
-            }
-            days
-        };
-        // Draw calendar dates
-        for _ in 1..=days {
-            let button = Button {
-                button_data: ButtonType::CalanderDate(date),
-                start_position: position,
-                end_position: Position::new(position.get_x() + 3, position.get_y()),
-                color: self.config.date_bg_color,
-            };
-            self.widgets.push(WidgetType::Button(button));
-            date = date.succ();
-            if let Weekday::Sun = date.weekday() {
-                position.set(2, position.get_y() + 2);
-            } else {
-                position.set_x(2 + 3 * (date.weekday().number_from_sunday() as u16 - 1));
-            }
-            
-        }
-
-        for widget in self.widgets.iter_mut() {
-            match widget {
-                WidgetType::Button(button) => button.draw(&mut self.terminal),
-                WidgetType::TextBox(pos, text, color) => 
-                    self.terminal.write_background(*pos, text.to_string(), color),
-            }
         }
     }
 
@@ -135,71 +88,70 @@ impl Tui {
         );
     }
 
-    fn select_button(&mut self, index_from: usize, index_to: usize) -> Option<usize> {
-        // TODO draw buttons here maybe. Also would have to pass terminal here
-        match self.widgets.get_mut(index_from) {
-            Some(widget) => 
-            match widget {
-                WidgetType::Button(button) => 
-                match button.button_data {
-                    ButtonType::_TextButton(_) => todo!("Set config for text buttons"),
-                    ButtonType::CalanderDate(_) => button.color = self.config.date_bg_color,
+    fn create_calendars(&mut self) {
+        let mut date = Local::today().with_day(1).unwrap();
+        let mut position = Position::new_origin();
+        loop {
+            let calendar = Calendar::new(date, position);
+            self.calendars.push(calendar);
+            let month = date.month();
+            while month == date.month() { date = date.succ() };
+            position.set_x(position.get_x() + 24);
+            if !position.clone().set_x(position.get_x() + 24) { // Check if future position will work
+                if !position.set(1, position.get_y() + 14) || !position.clone().set_y(position.get_y() + 14) {
+                     break;
                 }
-                WidgetType::TextBox(_, _, _) => (),
-            },
-            None => return None,
-        }
-        let iter = self.widgets.iter_mut();
-        for (i, widget) in iter.skip(index_to).enumerate() {
-            if let WidgetType::Button(button) = widget {
-                button.color = self.config.select_bg_color;
-                return Some(i + index_to);
             }
         }
-        None
     }
 
-    fn get_select_index(&mut self, index_from: usize, index_to: usize) -> usize {
-        match self.select_button(index_from, index_to) {
-            Some(value) => value,
-            None => self.select_button(0, 0).unwrap_or(0),
+    fn draw_calendars(&mut self) {
+        for calendar in self.calendars.iter_mut() {
+            calendar.draw(&mut self.terminal, &mut self.config);
         }
     }
 }
 
-trait Widget {
+pub trait Widget {
     fn is_hovered(&self, position: Position) -> bool {
-        self.get_start() >= position && self.get_end() <= position
+        self.get_start().get_x() >= position.get_x()
+        && self.get_start().get_y() >= position.get_y()
+        && self.get_end().get_x() <= position.get_x()
+        && self.get_end().get_y() <= position.get_y()
     }
-
     fn draw(&mut self, terminal: &mut Terminal);
     fn action(&mut self);
     fn get_start(&self) -> Position;
     fn get_end(&self) -> Position;
 }
 
-enum WidgetType {
+pub enum WidgetType {
     Button(Button),
-    TextBox(Position, String, AnsiValue),
+    WriteBox(Position, AnsiValue),
 }
 
-struct Button {
-    button_data: ButtonType,
-    start_position: Position,
-    end_position: Position,
-    color: AnsiValue,
+pub struct Button {
+    pub button_data: ButtonType,
+    pub start_position: Position,
+    pub end_position: Position,
+    pub color: AnsiValue,
+}
+
+pub enum ButtonType {
+    TextButton(String),
+    CalanderDate(Date<Local>),
 }
 
 impl Widget for Button {
     fn draw(&mut self, terminal: &mut Terminal) {
         match &self.button_data {
-            ButtonType::_TextButton(text) => self.draw_text_button(terminal, text.to_string()),
+            ButtonType::TextButton(text) => self.draw_text_button(terminal, text.to_string()),
             ButtonType::CalanderDate(date) => self.draw_calendar_date(terminal, date),
         }
     }
 
     fn action(&mut self) {
-        todo!()
+        todo!("Make button actions for date buttons and text buttons. Date buttons allow you to insert text, while text button give overview")
     }
 
     fn get_start(&self) -> Position {
@@ -214,9 +166,10 @@ impl Widget for Button {
 impl Button {
     fn draw_text_button(&self, terminal: &mut Terminal, text: String) {
         let center_x: u16 = (self.end_position.get_x() + self.start_position.get_x()) / 2;
-        let length: u16 = text.chars().count() as u16;
-        let center_x: u16 = if center_x >= length {
-            center_x - text.chars().count() as u16 / 2
+        let length: u16 = text.chars().count() as u16 / 2;
+        let center_x: u16 = 
+        if center_x >= length {
+            center_x - length
         } else {
             center_x
         };
@@ -226,16 +179,21 @@ impl Button {
     }
 
     fn draw_calendar_date(&self, terminal: &mut Terminal, date: &Date<Local>) {
-        let date = if date.day() < 10 {
-            format!(" {}", date.day().to_string())
-        } else {
-            date.day().to_string()
-        };
-        terminal.write_background(self.start_position, date, &self.color);
+        terminal.write_background(self.start_position, date.format("%e").to_string(), &self.color);
     }
 }
 
-enum ButtonType {
-    _TextButton(String), // TODO
-    CalanderDate(Date<Local>),
+pub struct TextBox {
+    text: String,
+    position: Position,
+    color: AnsiValue,
+}
+
+impl TextBox {
+    pub fn new(text: String, position: Position, color: AnsiValue) -> Self{
+        TextBox { text, position, color }
+    }
+    pub fn draw(&self, terminal: &mut Terminal) {
+        terminal.write_background(self.position, self.text.clone(), &self.color);
+    }
 }

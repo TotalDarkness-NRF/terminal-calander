@@ -26,14 +26,21 @@ pub struct Config {
     pub bg_color: AnsiValue,
     pub calendar_bg_color: AnsiValue,
     pub date_bg_color: AnsiValue,
+    pub text_button_bg_color: AnsiValue,
     pub date_num_color: AnsiValue,
     pub weekday_bg_color: AnsiValue,
-    pub select_bg_color: AnsiValue,
+    pub select_bg_date_color: AnsiValue,
+    pub select_bg_text_button_color: AnsiValue,
     pub quit: Key,
     pub up: Key,
     pub left: Key,
     pub down: Key,
     pub right: Key,
+    pub calendar_up: Key,
+    pub calendar_left: Key,
+    pub calendar_right: Key,
+    pub calendar_down: Key,
+    pub change_calendar_reset_cursor: bool,
     // TODO have buttons to move calander right left etc
 }
 
@@ -69,12 +76,14 @@ impl Config {
     fn match_colors(config: &mut Config, config_var: &str, value: &str) {
         if let Some(value) = parse_color(value) {
             match config_var {
-                "bg_color" =>  config.bg_color = value,
+                "bg_color" => config.bg_color = value,
                 "calendar_bg_color" => config.calendar_bg_color = value,
                 "date_bg_color" => config.date_bg_color = value,
-                "date_num_color" =>  config.date_num_color = value,
+                "text_button_bg_color" => config.text_button_bg_color = value,
+                "date_num_color" => config.date_num_color = value,
                 "weekday_bg_color" => config.weekday_bg_color = value,
-                "select_bg_color" => config.select_bg_color = value,
+                "select_bg_date_color" => config.select_bg_date_color = value,
+                "select_bg_text_button_color" => config.select_bg_text_button_color = value,
                 _ => (),
             }
         }
@@ -85,14 +94,21 @@ impl Config {
             bg_color: AnsiValue(12),
             calendar_bg_color: AnsiValue(7),
             date_bg_color: AnsiValue(0),
+            text_button_bg_color: AnsiValue(6),
             date_num_color: AnsiValue(7),
             weekday_bg_color: AnsiValue(9),
-            select_bg_color: AnsiValue(5),
+            select_bg_date_color: AnsiValue(5),
+            select_bg_text_button_color: AnsiValue(13),
             quit: Key::Char('q'),
             up: Key::Char('w'),
             left: Key::Char('a'),
             down: Key::Char('s'),
             right: Key::Char('d'),
+            calendar_up: Key::Char('W'),
+            calendar_left: Key::Char('A'),
+            calendar_down: Key::Char('S'),
+            calendar_right: Key::Char('D'),
+            change_calendar_reset_cursor: true,
         }
     }
 }
