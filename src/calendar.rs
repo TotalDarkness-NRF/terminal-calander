@@ -28,7 +28,8 @@ impl Calendar {
             button_data: ButtonType::TextButton(date.format("%B %Y").to_string()),
             start_position: self.position,
             end_position: Position::new(self.position.get_x() + 21, self.position.get_y()),
-            color: config.text_button_bg_color,
+            bg_color: config.text_button_bg_color,
+            fg_color: config.month_text_color,
         };
         button.draw(terminal);
         self.buttons.push(button);
@@ -66,7 +67,9 @@ impl Calendar {
                 button_data: ButtonType::CalanderDate(date),
                 start_position: position,
                 end_position: Position::new(position.get_x() + 3, position.get_y()),
-                color: config.date_bg_color,
+                bg_color: config.date_bg_color,
+                fg_color: config.date_num_color,
+                // TODO use date_num_color
             };
             button.draw(terminal);
             self.buttons.push(button);
@@ -85,7 +88,7 @@ impl Calendar {
         let button = self.buttons.iter_mut().skip(index_to).next();
         match button {
             Some(button) => {
-                button.color = 
+                button.bg_color = 
                 match button.button_data {
                     ButtonType::TextButton(_) => config.select_bg_text_button_color,
                     ButtonType::CalanderDate(_) => config.select_bg_date_color,
@@ -100,7 +103,7 @@ impl Calendar {
     pub fn unselect_button(&mut self, config: &mut Config, terminal: &mut Terminal) {
         match self.buttons.get_mut(self.cursor) {
             Some(button) => {
-                button.color =
+                button.bg_color =
                     match button.button_data {
                         ButtonType::TextButton(_) => config.text_button_bg_color,
                         ButtonType::CalanderDate(_) => config.date_bg_color,
