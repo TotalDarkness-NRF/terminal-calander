@@ -49,7 +49,9 @@ impl Tui {
             }
             else if key == self.config.left {
                 let calendar =  self.calendars.get_mut(index).unwrap(); // TODO make sure we check for incorrect index
-                calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor - 1);
+                if calendar.cursor > 0 {
+                    calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor - 1);
+                }
             }
             else if key == self.config.right {
                 let calendar = self.calendars.get_mut(index).unwrap();
@@ -131,7 +133,7 @@ pub struct Button {
 impl Widget for Button {
     fn draw(&mut self, terminal: &mut Terminal) {
         match &self.button_data {
-            ButtonType::_TextButton(text) => self.draw_text_button(terminal, text.to_string()),
+            ButtonType::TextButton(text) => self.draw_text_button(terminal, text.to_string()),
             ButtonType::CalanderDate(date) => self.draw_calendar_date(terminal, date),
         }
     }
@@ -174,6 +176,6 @@ impl Button {
 }
 
 pub enum ButtonType {
-    _TextButton(String), // TODO
+    TextButton(String),
     CalanderDate(Date<Local>),
 }
