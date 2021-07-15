@@ -41,6 +41,7 @@ pub struct Config {
     pub calendar_right: Key,
     pub calendar_down: Key,
     pub change_calendar_reset_cursor: bool,
+    pub unselect_change_calendar_cursor: bool,
     // TODO have buttons to move calander right left etc
 }
 
@@ -109,6 +110,7 @@ impl Config {
             calendar_down: Key::Char('S'),
             calendar_right: Key::Char('D'),
             change_calendar_reset_cursor: true,
+            unselect_change_calendar_cursor: true, 
         }
     }
 }

@@ -58,10 +58,11 @@ impl Tui {
             else if key == self.config.calendar_left {
                 if index > 0 {
                     let calendar = self.calendars.get_mut(index).unwrap();
-                    calendar.unselect_button(&mut self.config, &mut self.terminal);
+                    if self.config.unselect_change_calendar_cursor || self.config.change_calendar_reset_cursor { // Only allow if we want to unselect or reset cursor
+                        calendar.unselect_button(&mut self.config, &mut self.terminal);
+                    }
                     index -= 1;
-                    // TODO maybe config option to remove curosr on that calendar?
-                    if self.config.change_calendar_reset_cursor { calendar.cursor = 0 };
+                    if self.config.change_calendar_reset_cursor { calendar.cursor = 0; }
                     let calendar = self.calendars.get_mut(index).unwrap();
                     calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
                 }
@@ -69,9 +70,11 @@ impl Tui {
             else if key == self.config.calendar_right {
                 if index + 1 < self.calendars.len() {
                     let calendar = self.calendars.get_mut(index).unwrap();
-                    calendar.unselect_button(&mut self.config, &mut self.terminal);
+                    if self.config.unselect_change_calendar_cursor || self.config.change_calendar_reset_cursor {
+                        calendar.unselect_button(&mut self.config, &mut self.terminal);
+                    }
                     index += 1;
-                    if self.config.change_calendar_reset_cursor { calendar.cursor = 0 };
+                    if self.config.change_calendar_reset_cursor { calendar.cursor = 0; }
                     let calendar = self.calendars.get_mut(index).unwrap();
                     calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
                 }
