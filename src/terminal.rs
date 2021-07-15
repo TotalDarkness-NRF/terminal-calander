@@ -89,4 +89,43 @@ impl Terminal {
         let (x, y) = termion::terminal_size().unwrap();
         Position::new(x, y)
     }
+
+    pub fn write_format(&mut self, format: Formatter) {
+        self.write(format.get_string_format());
+    }
+}
+
+#[derive(Clone)]
+pub struct Formatter {
+    string: String,
+}
+
+impl Formatter {
+    pub fn new() -> Self {
+        Formatter { string: String::new() }
+    }
+
+    pub fn bg_color(mut self, color: &dyn Color) -> Self {
+        self.string.push_str(color::Bg(color).to_string().as_str());
+        self
+    }
+
+    pub fn fg_color(mut self, color: &dyn Color) -> Self {
+        self.string.push_str(color::Fg(color).to_string().as_str());
+        self
+    }
+
+    pub fn text(mut self, text: String) -> Self {
+        self.string.push_str(text.as_str());
+        self
+    }
+
+    pub fn go_to(mut self, position: Position) -> Self {
+        self.string.push_str(cursor::Goto(position.get_x(), position.get_y()).to_string().as_str());
+        self
+    }
+
+    pub fn get_string_format(&self) -> String {
+        self.string.clone()
+    }
 }

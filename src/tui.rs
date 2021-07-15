@@ -3,7 +3,7 @@ use std::process::exit;
 use chrono::{Date, Datelike, Local};
 use termion::color::AnsiValue;
 
-use crate::{calendar::Calendar, config::Config, position::Position, terminal::Terminal};
+use crate::{calendar::Calendar, config::Config, position::Position, terminal::{Formatter, Terminal}};
 
 pub struct Tui {
     max_x: u16,
@@ -137,7 +137,8 @@ pub struct Button {
     pub button_data: ButtonType,
     pub start_position: Position,
     pub end_position: Position,
-    pub color: AnsiValue,
+    pub bg_color: AnsiValue,
+    pub fg_color: AnsiValue,
 }
 
 pub enum ButtonType {
@@ -177,12 +178,22 @@ impl Button {
             center_x
         };
         let center_y: u16 = (self.end_position.get_y() + self.start_position.get_y()) / 2;
-        terminal.draw_large_box(self.start_position, self.end_position, &self.color);
-        terminal.write_background(Position::new(center_x, center_y), text, &self.color);
+        terminal.draw_large_box(self.start_position, self.end_position, &self.bg_color);
+        let format = Formatter::new()
+        .go_to(Position::new(center_x, center_y))
+        .bg_color(&self.bg_color)
+        .fg_color(&self.fg_color)
+        .text(text);
+        terminal.write_format(format);
     }
 
     fn draw_calendar_date(&self, terminal: &mut Terminal, date: &Date<Local>) {
-        terminal.write_background(self.start_position, date.format("%e").to_string(), &self.color);
+        let format = Formatter::new()
+        .go_to(self.start_position)
+        .bg_color(&self.bg_color)
+        .fg_color(&self.fg_color)
+        .text(date.format("%e").to_string());
+        terminal.write_format(format);
     }
 }
 

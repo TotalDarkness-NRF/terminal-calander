@@ -69,7 +69,6 @@ impl Calendar {
                 end_position: Position::new(position.get_x() + 3, position.get_y()),
                 bg_color: config.date_bg_color,
                 fg_color: config.date_num_color,
-                // TODO use date_num_color
             };
             button.draw(terminal);
             self.buttons.push(button);
