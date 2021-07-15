@@ -1,23 +1,9 @@
-use std::cmp::Ordering;
-
 use crate::terminal::Terminal;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
 pub struct Position {
     x: u16,
     y: u16,
-}
-
-impl PartialEq for Position {
-    fn eq(&self, other: &Self) -> bool {
-        self.get_x() == other.get_x() && self.get_y() == other.get_y()
-    }
-}
-
-impl PartialOrd for Position {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        (self.get_x(), self.get_y()).partial_cmp(&(other.get_x(), other.get_y()))
-    }
 }
 
 impl Position {
