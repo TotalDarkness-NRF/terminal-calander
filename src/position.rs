@@ -1,10 +1,12 @@
 use crate::terminal::Terminal;
 
-#[derive(Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Clone, Copy)]
 pub struct Position {
     x: u16,
     y: u16,
 }
+
+// TODO maybe look at ordering better
 
 impl Position {
     pub fn new(x: u16, y: u16) -> Self {
@@ -49,7 +51,8 @@ impl Position {
     }
 
     pub fn is_in_boundary(&self) -> bool {
-        self.x > 0 && self.y > 0 && *self <= Terminal::get_boundaries()
+        let bounds = &Terminal::get_boundaries();
+        self.x > 0 && self.y > 0 && self.get_x() <= bounds.get_x() && self.get_y() <= bounds.get_y()
     }
 }
 

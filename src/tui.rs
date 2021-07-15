@@ -10,7 +10,7 @@ pub struct Tui {
     max_y: u16,
     config: Config,
     terminal: Terminal,
-    calendars: Vec<Calendar>, // TODO this might have to be for each individual calendar, instead have a vec of calendars
+    calendars: Vec<Calendar>,
 }
 
 impl Tui {
@@ -42,8 +42,6 @@ impl Tui {
         let mut index: usize = 0;
         for key in Terminal::get_keys() {
             let key = key.unwrap();
-            //let prev_cursor_pos = cursor_index;
-            // TODO do selecting of dates on buttons!
             if key == self.config.quit {
                self.quit();
             }
@@ -93,11 +91,17 @@ impl Tui {
     fn create_calendars(&mut self) {
         let mut date = Local::today().with_day(1).unwrap();
         let mut position = Position::new_origin();
-        for _ in 0..=3 {
-        let calendar = Calendar::new(date, position);
-        self.calendars.push(calendar);
-        date = date.with_month(date.month() + 1).unwrap(); // TODO wont work if above 12, just for testing now
-        position.set_x(position.get_x() + 24);
+        loop {
+            let calendar = Calendar::new(date, position);
+            self.calendars.push(calendar);
+            let month = date.month();
+            while month == date.month() { date = date.succ() };
+            position.set_x(position.get_x() + 24);
+            if !position.clone().set_x(position.get_x() + 24) { // Check if future position will work
+                if !position.set(1, position.get_y() + 14) || !position.clone().set_y(position.get_y() + 14) {
+                     break;
+                }
+            }
         }
     }
 
@@ -110,7 +114,10 @@ impl Tui {
 
 pub trait Widget {
     fn is_hovered(&self, position: Position) -> bool {
-        self.get_start() >= position && self.get_end() <= position
+        self.get_start().get_x() >= position.get_x()
+        && self.get_start().get_y() >= position.get_y()
+        && self.get_end().get_x() <= position.get_x()
+        && self.get_end().get_y() <= position.get_y()
     }
     fn draw(&mut self, terminal: &mut Terminal);
     fn action(&mut self);
@@ -159,10 +166,10 @@ impl Widget for Button {
 impl Button {
     fn draw_text_button(&self, terminal: &mut Terminal, text: String) {
         let center_x: u16 = (self.end_position.get_x() + self.start_position.get_x()) / 2;
-        let length: u16 = text.chars().count() as u16;
+        let length: u16 = text.chars().count() as u16 / 2;
         let center_x: u16 = 
         if center_x >= length {
-            center_x - text.chars().count() as u16 / 2
+            center_x - length
         } else {
             center_x
         };
