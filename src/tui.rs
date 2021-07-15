@@ -63,7 +63,7 @@ impl Tui {
                     calendar.unselect_button(&mut self.config, &mut self.terminal);
                     index -= 1;
                     // TODO maybe config option to remove curosr on that calendar?
-                    // TODO maybe config option to reset cursor?
+                    if self.config.change_calendar_reset_cursor { calendar.cursor = 0 };
                     let calendar = self.calendars.get_mut(index).unwrap();
                     calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
                 }
@@ -73,6 +73,7 @@ impl Tui {
                     let calendar = self.calendars.get_mut(index).unwrap();
                     calendar.unselect_button(&mut self.config, &mut self.terminal);
                     index += 1;
+                    if self.config.change_calendar_reset_cursor { calendar.cursor = 0 };
                     let calendar = self.calendars.get_mut(index).unwrap();
                     calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
                 }
@@ -111,7 +112,6 @@ pub trait Widget {
     fn is_hovered(&self, position: Position) -> bool {
         self.get_start() >= position && self.get_end() <= position
     }
-
     fn draw(&mut self, terminal: &mut Terminal);
     fn action(&mut self);
     fn get_start(&self) -> Position;
@@ -120,7 +120,7 @@ pub trait Widget {
 
 pub enum WidgetType {
     Button(Button),
-    TextBox(Position, String, AnsiValue),
+    WriteBox(Position, AnsiValue),
 }
 
 pub struct Button {
@@ -128,6 +128,11 @@ pub struct Button {
     pub start_position: Position,
     pub end_position: Position,
     pub color: AnsiValue,
+}
+
+pub enum ButtonType {
+    TextButton(String),
+    CalanderDate(Date<Local>),
 }
 
 impl Widget for Button {
@@ -139,7 +144,7 @@ impl Widget for Button {
     }
 
     fn action(&mut self) {
-        todo!()
+        todo!("Make button actions for date buttons and text buttons. Date buttons allow you to insert text, while text button give overview")
     }
 
     fn get_start(&self) -> Position {
@@ -155,7 +160,8 @@ impl Button {
     fn draw_text_button(&self, terminal: &mut Terminal, text: String) {
         let center_x: u16 = (self.end_position.get_x() + self.start_position.get_x()) / 2;
         let length: u16 = text.chars().count() as u16;
-        let center_x: u16 = if center_x >= length {
+        let center_x: u16 = 
+        if center_x >= length {
             center_x - text.chars().count() as u16 / 2
         } else {
             center_x
@@ -166,16 +172,21 @@ impl Button {
     }
 
     fn draw_calendar_date(&self, terminal: &mut Terminal, date: &Date<Local>) {
-        let date = if date.day() < 10 {
-            format!(" {}", date.day().to_string())
-        } else {
-            date.day().to_string()
-        };
-        terminal.write_background(self.start_position, date, &self.color);
+        terminal.write_background(self.start_position, date.format("%e").to_string(), &self.color);
     }
 }
 
-pub enum ButtonType {
-    TextButton(String),
-    CalanderDate(Date<Local>),
+pub struct TextBox {
+    text: String,
+    position: Position,
+    color: AnsiValue,
+}
+
+impl TextBox {
+    pub fn new(text: String, position: Position, color: AnsiValue) -> Self{
+        TextBox { text, position, color }
+    }
+    pub fn draw(&self, terminal: &mut Terminal) {
+        terminal.write_background(self.position, self.text.clone(), &self.color);
+    }
 }

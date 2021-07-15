@@ -1,6 +1,6 @@
 use chrono::{Date, Datelike, Local, Weekday};
 
-use crate::{config::Config, position::Position, terminal::Terminal, tui::{Button, ButtonType, Widget, WidgetType}};
+use crate::{config::Config, position::Position, terminal::Terminal, tui::{Button, ButtonType, TextBox, Widget}};
 
 pub struct Calendar {
     start_date: Date<Local>,
@@ -28,7 +28,7 @@ impl Calendar {
             button_data: ButtonType::TextButton(date.format("%B %Y").to_string()),
             start_position: self.position,
             end_position: Position::new(self.position.get_x() + 21, self.position.get_y()),
-            color: config.date_bg_color, // TODO make custom color for this
+            color: config.text_button_bg_color,
         };
         button.draw(terminal);
         self.buttons.push(button);
@@ -47,8 +47,7 @@ impl Calendar {
         weekdays.push(' ');
         let mut position = self.position.clone();
         position.set_y(position.get_y() + 1);
-        //TODO self.widgets.push(WidgetType::TextBox(position, weekdays, config.weekday_bg_color));
-        //self.widgets.reverse(); // Make the button widget first (too lazy to fix issue if it isn't)
+        TextBox::new(weekdays, position, config.weekday_bg_color).draw(terminal);
         date = self.start_date.clone();
         position.set(self.position.get_x() + 1 + 3 * (date.weekday().number_from_sunday() as u16 - 1), position.get_y() + 1); // TODO make the x calc a function
         // Count days in a month
@@ -81,7 +80,6 @@ impl Calendar {
     }
 
     pub fn select_button(&mut self, config: &mut Config, terminal: &mut Terminal, index_to: usize) {
-        // TODO fix not being able to reselct calendar text buttons cause a non button is blocking
         if index_to >= self.buttons.len() { return; } // TODO maybe use directions later
         self.unselect_button(config, terminal);
         let button = self.buttons.iter_mut().skip(index_to).next();
@@ -104,7 +102,7 @@ impl Calendar {
             Some(button) => {
                 button.color =
                     match button.button_data {
-                        ButtonType::TextButton(_) => config.date_bg_color, // todo
+                        ButtonType::TextButton(_) => config.text_button_bg_color,
                         ButtonType::CalanderDate(_) => config.date_bg_color,
                     };
                 button.draw(terminal);
