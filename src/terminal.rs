@@ -1,6 +1,6 @@
 use std::{fs::File, io::Write};
 
-use termion::{clear, color::{self, Color}, cursor, input::{Events, MouseTerminal, TermRead}, raw::{IntoRawMode, RawTerminal}, screen};
+use termion::{clear, color::{self, Color}, cursor, input::{Events, MouseTerminal, TermRead}, raw::{IntoRawMode, RawTerminal}, screen, style};
 
 use crate::position::Position;
 
@@ -58,8 +58,13 @@ impl Terminal {
         }
     }
 
-    pub fn _clear_all(&mut self) {
+    pub fn clear_all(&mut self) {
         self.write(format!("{}{}", clear::All, cursor::Goto::default()));
+    }
+
+    pub fn reset(&mut self) {
+        self.write(format!("{}{}{}{}", cursor::Goto::default(), color::Bg(color::Reset), color::Fg(color::Reset), style::Reset));
+        self.clear_all();
     }
 
     pub fn flush(&mut self) {
