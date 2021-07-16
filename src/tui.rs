@@ -6,8 +6,7 @@ use termion::{color::AnsiValue, event::{Event, Key, MouseButton, MouseEvent}};
 use crate::{calendar::Calendar, config::Config, position::{Direction, Position}, terminal::{Formatter, Terminal}};
 
 pub struct Tui {
-    max_x: u16,
-    max_y: u16,
+    bounds: Position,
     config: Config,
     terminal: Terminal,
     calendars: Vec<Calendar>,
@@ -15,10 +14,8 @@ pub struct Tui {
 
 impl Tui {
     pub fn new() -> Self {
-        let boundary = Terminal::get_boundaries();
         Tui {
-            max_x: boundary.get_x(),
-            max_y: boundary.get_y(),
+            bounds: Terminal::get_boundaries(),
             config: Config::get_config(),
             terminal: Terminal::get_raw(),
             calendars: Vec::new(),
@@ -27,7 +24,6 @@ impl Tui {
 
     pub fn start(&mut self) {
         self.terminal.begin();
-        self.draw_background();
         self.tui_loop();
     }
 
@@ -37,6 +33,7 @@ impl Tui {
     }
 
     fn tui_loop(&mut self) {
+        self.draw_background();
         self.create_calendars();
         self.draw_calendars();
         let mut index: usize = 0;
@@ -47,6 +44,10 @@ impl Tui {
                 Event::Unsupported(_) => (),
             }
             self.terminal.flush();
+            if self.bounds != Terminal::get_boundaries() {
+                index = 0;
+                self.reset();
+            }
         }
     }
 
@@ -119,7 +120,7 @@ impl Tui {
     fn draw_background(&mut self) {
         self.terminal.draw_large_box(
             Position::new_origin(),
-            Position::new(self.max_x, self.max_y),
+            Position::new(self.bounds.get_x(), self.bounds.get_y()),
             &self.config.bg_color,
         );
     }
@@ -127,7 +128,7 @@ impl Tui {
     fn create_calendars(&mut self) {
         let mut date = Local::today().with_day(1).unwrap();
         let mut position = Position::new_origin();
-        loop {
+        loop { // TODO config option for max amount of calendars
             let calendar = Calendar::new(date, position, &self.config);
             self.calendars.push(calendar);
             let month = date.month();
@@ -174,6 +175,16 @@ impl Tui {
         if self.config.change_calendar_reset_cursor { calendar.cursor = 0; }
         let calendar = self.calendars.get_mut(*index).unwrap();
         calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
+    }
+
+    fn reset(&mut self) {
+        self.terminal.reset();
+        self.bounds = Terminal::get_boundaries();
+        self.config = Config::get_config();
+        self.calendars.clear();
+        self.draw_background();
+        self.create_calendars();
+        self.draw_calendars();
     }
 }
 

@@ -7,7 +7,7 @@ pub struct Calendar {
     start_date: Date<Local>,
     start: Position,
     end: Position,
-    weekdays: TextBox,
+    weekdays: TextBox, // TODO no point in saving this in each calendar
     pub buttons: Vec<Button>,
     pub cursor: usize,
     bg_color: AnsiValue
