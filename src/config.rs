@@ -69,27 +69,10 @@ impl Config {
             let config_var = config_var.trim();
             let value = value.trim();
             if config_var.contains("color") {
-                Config::match_colors(&mut config, config_var, value);
+                match_colors(&mut config, config_var, value);
             }
         }
         config
-    }
-
-    fn match_colors(config: &mut Config, config_var: &str, value: &str) {
-        if let Some(value) = parse_color(value) {
-            match config_var {
-                "bg_color" => config.bg_color = value,
-                "calendar_bg_color" => config.calendar_bg_color = value,
-                "date_bg_color" => config.date_bg_color = value,
-                "text_button_bg_color" => config.text_button_bg_color = value,
-                "date_num_color" => config.date_num_color = value,
-                "month_text_color" => config.month_text_color = value,
-                "weekday_bg_color" => config.weekday_bg_color = value,
-                "select_bg_date_color" => config.select_bg_date_color = value,
-                "select_bg_text_button_color" => config.select_bg_text_button_color = value,
-                _ => (),
-            }
-        }
     }
 
     fn get_default_config() -> Self {
@@ -114,6 +97,23 @@ impl Config {
             calendar_right: Key::Char('D'),
             change_calendar_reset_cursor: true,
             unselect_change_calendar_cursor: true, 
+        }
+    }
+}
+
+fn match_colors(config: &mut Config, config_var: &str, value: &str) {
+    if let Some(value) = parse_color(value) {
+        match config_var {
+            "bg_color" => config.bg_color = value,
+            "calendar_bg_color" => config.calendar_bg_color = value,
+            "date_bg_color" => config.date_bg_color = value,
+            "text_button_bg_color" => config.text_button_bg_color = value,
+            "date_num_color" => config.date_num_color = value,
+            "month_text_color" => config.month_text_color = value,
+            "weekday_bg_color" => config.weekday_bg_color = value,
+            "select_bg_date_color" => config.select_bg_date_color = value,
+            "select_bg_text_button_color" => config.select_bg_text_button_color = value,
+            _ => (),
         }
     }
 }
