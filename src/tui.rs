@@ -1,7 +1,7 @@
 use std::process::exit;
 
 use chrono::{Date, Datelike, Local};
-use termion::{color::AnsiValue, event::Key};
+use termion::{color::AnsiValue, event::{Event, Key, MouseButton, MouseEvent}};
 
 use crate::{calendar::Calendar, config::Config, position::{Direction, Position}, terminal::{Formatter, Terminal}};
 
@@ -40,8 +40,12 @@ impl Tui {
         self.create_calendars();
         self.draw_calendars();
         let mut index: usize = 0;
-        for key in Terminal::get_keys() {
-            self.handle_key(key.unwrap(), &mut index);
+        for event in self.terminal.get_events() {
+            match event.unwrap() {
+                Event::Key(key) => self.handle_key(key, &mut index),
+                Event::Mouse(mouse) => self.handle_mouse(mouse, &mut index),
+                Event::Unsupported(_) => (),
+            }
             self.terminal.flush();
         }
     }
@@ -70,6 +74,40 @@ impl Tui {
          } else if key == self.config.calendar_down {
              self.move_calendar(index, Direction::Down);            
          }
+    }
+
+    fn handle_mouse(&mut self, mouse: MouseEvent, index: &mut usize) {
+        if let MouseEvent::Press(mouse, x, y) = mouse {
+            if !matches!(mouse, MouseButton::Left) { return }
+            let mut calendar_change = false;
+            let mut future_index = self.calendars.len() + 1;
+            let mouse_pos = Position::new(x, y);
+            for (calendar_index, calendar) in self.calendars.iter_mut().enumerate() {
+                let start_pos = calendar.get_position();
+                let end_pos = Position::new(start_pos.get_x() + 21, start_pos.get_y() + 12);
+                if mouse_pos.get_x() >= start_pos.get_x() && mouse_pos.get_x() <= end_pos.get_x()
+                && mouse_pos.get_y() >= start_pos.get_y() && mouse_pos.get_y() <= end_pos.get_y() {
+                    for (i, button) in calendar.buttons.iter_mut().enumerate() {
+                        if button.is_hovered(mouse_pos) {
+                            if *index != calendar_index {
+                                calendar_change = true;
+                                future_index = calendar_index;
+                            }
+                            calendar.select_button(&mut self.config, &mut self.terminal, i);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if !calendar_change { return; }
+            let last_calendar = self.calendars.get_mut(*index).unwrap();
+            if self.config.unselect_change_calendar_cursor || self.config.change_calendar_reset_cursor {
+                last_calendar.unselect_button(&mut self.config, &mut self.terminal);
+            }
+            if self.config.change_calendar_reset_cursor { last_calendar.cursor = 0; }  
+            *index = future_index;  
+        }
     }
 
     fn get_num_columns(&self) -> usize {
@@ -144,10 +182,8 @@ impl Tui {
 
 pub trait Widget {
     fn is_hovered(&self, position: Position) -> bool {
-        self.get_start().get_x() >= position.get_x()
-        && self.get_start().get_y() >= position.get_y()
-        && self.get_end().get_x() <= position.get_x()
-        && self.get_end().get_y() <= position.get_y()
+        position.get_x() >= self.get_start().get_x() && position.get_y() >= self.get_start().get_y()
+        && position.get_x() <= self.get_end().get_x() && position.get_y() <= self.get_end().get_y()
     }
     fn draw(&mut self, terminal: &mut Terminal);
     fn action(&mut self);
