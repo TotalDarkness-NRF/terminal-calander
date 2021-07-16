@@ -6,6 +6,12 @@ pub struct Position {
     y: u16,
 }
 
+impl PartialEq for Position {
+    fn eq(&self, other: &Self) -> bool {
+        self.get_x() == other.get_x() && self.get_y() == other.get_y()
+    }
+}
+
 // TODO maybe look at ordering better
 
 impl Position {
