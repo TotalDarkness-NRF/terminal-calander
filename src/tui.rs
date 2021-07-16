@@ -1,7 +1,7 @@
 use std::process::exit;
 
 use chrono::{Date, Datelike, Local};
-use termion::color::AnsiValue;
+use termion::{color::AnsiValue, event::Key};
 
 use crate::{calendar::Calendar, config::Config, position::{Direction, Position}, terminal::{Formatter, Terminal}};
 
@@ -41,40 +41,35 @@ impl Tui {
         self.draw_calendars();
         let mut index: usize = 0;
         for key in Terminal::get_keys() {
-            let key = key.unwrap();
-            if key == self.config.quit {
-               self.quit();
-            }
-            else if key == self.config.left {
-                let calendar =  self.calendars.get_mut(index).unwrap(); // TODO make sure we check for incorrect index
-                calendar.move_cursor(&mut self.config, &mut self.terminal, Direction::Left);
-            }
-            else if key == self.config.right {
-                let calendar = self.calendars.get_mut(index).unwrap();
-                calendar.move_cursor(&mut self.config, &mut self.terminal, Direction::Right);
-            }
-            else if key == self.config.up {
-                let calendar = self.calendars.get_mut(index).unwrap();
-                calendar.move_cursor(&mut self.config, &mut self.terminal, Direction::Up);
-            }
-            else if key == self.config.down {
-                let calendar = self.calendars.get_mut(index).unwrap();
-                calendar.move_cursor(&mut self.config, &mut self.terminal, Direction::Down);
-            }
-            else if key == self.config.calendar_left {
-                self.move_calendar(&mut index, Direction::Left);
-            }
-            else if key == self.config.calendar_right {
-                self.move_calendar(&mut index, Direction::Right);
-            }
-            else if key == self.config.calendar_up {
-                self.move_calendar(&mut index, Direction::Up);
-            }
-            else if key == self.config.calendar_down {
-                self.move_calendar(&mut index, Direction::Down);            
-            }
+            self.handle_key(key.unwrap(), &mut index);
             self.terminal.flush();
         }
+    }
+
+    fn handle_key(&mut self, key: Key, index: &mut usize) {
+        if key == self.config.quit {
+            self.quit();
+         } else if key == self.config.left {
+             self.calendars.get_mut(*index).unwrap()  // TODO make sure we check for incorrect index
+             .move_cursor(&mut self.config, &mut self.terminal, Direction::Left);
+         } else if key == self.config.right {
+             self.calendars.get_mut(*index).unwrap()
+             .move_cursor(&mut self.config, &mut self.terminal, Direction::Right);
+         } else if key == self.config.up {
+             self.calendars.get_mut(*index).unwrap()
+             .move_cursor(&mut self.config, &mut self.terminal, Direction::Up);
+         } else if key == self.config.down {
+             self.calendars.get_mut(*index).unwrap()
+             .move_cursor(&mut self.config, &mut self.terminal, Direction::Down);
+         } else if key == self.config.calendar_left {
+             self.move_calendar(index, Direction::Left);
+         } else if key == self.config.calendar_right {
+             self.move_calendar(index, Direction::Right);
+         } else if key == self.config.calendar_up {
+             self.move_calendar(index, Direction::Up);
+         } else if key == self.config.calendar_down {
+             self.move_calendar(index, Direction::Down);            
+         }
     }
 
     fn get_num_columns(&self) -> usize {
