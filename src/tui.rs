@@ -83,10 +83,7 @@ impl Tui {
             let mut future_index = self.calendars.len() + 1;
             let mouse_pos = Position::new(x, y);
             for (calendar_index, calendar) in self.calendars.iter_mut().enumerate() {
-                let start_pos = calendar.get_position();
-                let end_pos = Position::new(start_pos.get_x() + 21, start_pos.get_y() + 12);
-                if mouse_pos.get_x() >= start_pos.get_x() && mouse_pos.get_x() <= end_pos.get_x()
-                && mouse_pos.get_y() >= start_pos.get_y() && mouse_pos.get_y() <= end_pos.get_y() {
+                if calendar.is_hovered(mouse_pos) {
                     for (i, button) in calendar.buttons.iter_mut().enumerate() {
                         if button.is_hovered(mouse_pos) {
                             if *index != calendar_index {
@@ -112,9 +109,9 @@ impl Tui {
 
     fn get_num_columns(&self) -> usize {
         if self.calendars.is_empty() { return 0; }
-        let first_y = self.calendars.first().unwrap().get_position().get_y();
+        let first_y = self.calendars.first().unwrap().get_start().get_y();
         for (i, calendar) in self.calendars.iter().enumerate() {
-            if calendar.get_position().get_y() != first_y { return i };
+            if calendar.get_start().get_y() != first_y { return i };
         }
         self.calendars.len()
     }
@@ -131,7 +128,7 @@ impl Tui {
         let mut date = Local::today().with_day(1).unwrap();
         let mut position = Position::new_origin();
         loop {
-            let calendar = Calendar::new(date, position);
+            let calendar = Calendar::new(date, position, &self.config);
             self.calendars.push(calendar);
             let month = date.month();
             while month == date.month() { date = date.succ() };
@@ -146,7 +143,7 @@ impl Tui {
 
     fn draw_calendars(&mut self) {
         for calendar in self.calendars.iter_mut() {
-            calendar.draw(&mut self.terminal, &mut self.config);
+            calendar.draw(&mut self.terminal);
         }
     }
 
