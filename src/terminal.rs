@@ -1,29 +1,25 @@
 use std::{fs::File, io::Write};
 
-use termion::{
-    clear,
-    color::{self, Color},
-    cursor,
-    input::{Keys, TermRead},
-    raw::{IntoRawMode, RawTerminal},
-    screen,
-};
+use termion::{clear, color::{self, Color}, cursor, input::{Events, MouseTerminal, TermRead}, raw::{IntoRawMode, RawTerminal}, screen};
 
 use crate::position::Position;
 
 pub struct Terminal {
-    terminal: RawTerminal<File>,
+    terminal: MouseTerminal<RawTerminal<File>>,
 }
 
 impl Terminal {
     pub fn get_raw() -> Self {
         Terminal {
-            terminal: termion::get_tty().unwrap().into_raw_mode().unwrap(),
+            terminal: MouseTerminal::from(termion::get_tty().unwrap().into_raw_mode().unwrap()),
         }
     }
 
-    pub fn get_keys() -> Keys<File> {
-        termion::get_tty().unwrap().keys()
+    pub fn get_events(&self) -> Events<File>{
+        match self.terminal.try_clone() {
+            Ok(terminal) => terminal.events(),
+            Err(_) => termion::get_tty().unwrap().events(),
+        }
     }
 
     pub fn write(&mut self, message: String) {
