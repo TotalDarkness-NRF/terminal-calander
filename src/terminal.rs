@@ -15,11 +15,8 @@ impl Terminal {
         }
     }
 
-    pub fn get_events(&self) -> Events<File>{
-        match self.terminal.try_clone() {
-            Ok(terminal) => terminal.events(),
-            Err(_) => termion::get_tty().unwrap().events(),
-        }
+    pub fn get_events() -> Events<File>{
+        termion::get_tty().unwrap().events()
     }
 
     pub fn write(&mut self, message: String) {

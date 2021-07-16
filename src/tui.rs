@@ -1,4 +1,4 @@
-use std::process::exit;
+use std::{process::exit, sync::mpsc::{Receiver, channel}, thread};
 
 use chrono::{Date, Datelike, Local};
 use termion::{color::AnsiValue, event::{Event, Key, MouseButton, MouseEvent}};
@@ -10,15 +10,23 @@ pub struct Tui {
     config: Config,
     terminal: Terminal,
     calendars: Vec<Calendar>,
+    events: Receiver<Event>,
 }
 
 impl Tui {
     pub fn new() -> Self {
+        let (tx, rx) = channel();
+        thread::spawn(move || {
+            for key in Terminal::get_events() {
+                tx.send(key.unwrap()).unwrap();
+            }
+        });
         Tui {
             bounds: Terminal::get_boundaries(),
             config: Config::get_config(),
             terminal: Terminal::get_raw(),
             calendars: Vec::new(),
+            events: rx,
         }
     }
 
@@ -36,17 +44,23 @@ impl Tui {
         self.draw_background();
         self.create_calendars();
         self.draw_calendars();
-        let mut index: usize = 0;
-        for event in self.terminal.get_events() {
-            match event.unwrap() {
-                Event::Key(key) => self.handle_key(key, &mut index),
-                Event::Mouse(mouse) => self.handle_mouse(mouse, &mut index),
-                Event::Unsupported(_) => (),
-            }
+        let mut calendar_index: usize = 0;
+        loop {
+            self.handle_event(&mut calendar_index);
             self.terminal.flush();
             if self.bounds != Terminal::get_boundaries() {
-                index = 0;
+                calendar_index = 0;
                 self.reset();
+            }
+        }
+    }
+
+    fn handle_event(&mut self, index: &mut usize) {
+        if let Ok(event) = self.events.try_recv() {
+            match event {
+                Event::Key(key) => self.handle_key(key, index),
+                Event::Mouse(mouse) => self.handle_mouse(mouse, index),
+                Event::Unsupported(_) => (),
             }
         }
     }
