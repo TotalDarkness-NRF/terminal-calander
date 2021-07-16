@@ -5,7 +5,7 @@ use crate::{config::Config, position::{Direction, Position}, terminal::Terminal,
 pub struct Calendar {
     start_date: Date<Local>,
     position: Position,
-    buttons: Vec<Button>,
+    pub buttons: Vec<Button>,
     pub cursor: usize,
 }
 
@@ -66,7 +66,7 @@ impl Calendar {
             let mut button = Button {
                 button_data: ButtonType::CalanderDate(date),
                 start_position: position,
-                end_position: Position::new(position.get_x() + 3, position.get_y()),
+                end_position: Position::new(position.get_x() + 1, position.get_y()),
                 bg_color: config.date_bg_color,
                 fg_color: config.date_num_color,
             };
