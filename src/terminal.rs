@@ -5,14 +5,23 @@ use termion::{clear, color::{self, Color}, cursor, input::{Events, MouseTerminal
 use crate::position::Position;
 
 pub struct Terminal {
-    terminal: RawTerminal<File>,
+    terminal: File,
+    raw: Option<RawTerminal<File>>,
     mouse_terminals: u8,
 }
 
 impl Terminal {
-    pub fn get_raw() -> Self {
+    pub fn new_raw() -> Self {
+        let mut terminal = Terminal::new();
+        terminal.raw = Some(Terminal::get_terminal().into_raw_mode().unwrap());
+        terminal.raw.as_ref().unwrap().activate_raw_mode().unwrap();
+        terminal
+    }
+
+    pub fn new() -> Self {
         Terminal {
             terminal: Terminal::get_terminal(),
+            raw: None,
             mouse_terminals: 0,
         }
     }
@@ -21,11 +30,11 @@ impl Terminal {
         termion::get_tty().unwrap().events()
     }
 
-    fn get_terminal() -> RawTerminal<File> {
-        termion::get_tty().unwrap().into_raw_mode().unwrap()
+    fn get_terminal() -> File {
+        termion::get_tty().unwrap()
     }
 
-    pub fn get_mouse_terminal(&mut self) -> Result<MouseTerminal<RawTerminal<File>>, ()> {
+    pub fn get_mouse_terminal(&mut self) -> Result<MouseTerminal<File>, ()> {
         if self.mouse_terminals >= 1 { Err(()) }
         else {
             self.mouse_terminals += 1;
@@ -40,7 +49,6 @@ impl Terminal {
     pub fn write_background(&mut self, pos: Position, message: String, color: &dyn Color) {
         self.restore_cursor_write(pos, format!("{}{}", color::Bg(color), message));
     }
-
 
     pub fn draw_large_box(&mut self, start: Position, end: Position, color: &dyn Color) {
         if start.get_x() <= end.get_x() && start.get_y() <= end.get_y() {
@@ -93,8 +101,7 @@ impl Terminal {
 
     pub fn exit(&mut self) {
         self.write(format!("{}{}", cursor::Show, screen::ToMainScreen));
-        self.terminal.suspend_raw_mode().unwrap();
-        drop(self);
+        if let Some(raw) = &self.raw { raw.suspend_raw_mode().unwrap(); }
     }
 
     pub fn get_boundaries() -> Position {
