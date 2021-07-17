@@ -3,6 +3,7 @@ use termion::color::AnsiValue;
 
 use crate::{config::Config, position::{Direction, Position}, terminal::Terminal, tui::{Button, ButtonType, TextBox, Widget}};
 
+#[derive(Clone)]
 pub struct Calendar {
     start_date: Date<Local>,
     start: Position,
@@ -26,6 +27,18 @@ impl Calendar {
         };
         calendar.setup(config);
         calendar
+    }
+
+    pub fn dummy(config: &Config) -> Self {
+        Calendar {
+            start_date: Local::today(),
+            start: Position::new_origin(),
+            end: Position::new_origin(),
+            weekdays: TextBox::new("".to_string(), Position::new_origin(), config.weekday_bg_color),
+            buttons: Vec::new(),
+            cursor: 0,
+            bg_color: config.calendar_bg_color,
+        }
     }
 
     fn setup(&mut self, config: &Config) {
