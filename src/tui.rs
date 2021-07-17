@@ -1,4 +1,4 @@
-use std::{process::exit, sync::mpsc::{Receiver, channel}, thread};
+use std::{process::exit, sync::{Arc, Mutex, mpsc::{Receiver, channel}}, thread, time::Duration};
 
 use chrono::{Date, Datelike, Local};
 use termion::{color::AnsiValue, event::{Event, Key, MouseButton, MouseEvent}};
@@ -10,23 +10,15 @@ pub struct Tui {
     config: Config,
     terminal: Terminal,
     calendars: Vec<Calendar>,
-    events: Receiver<Event>,
 }
 
 impl Tui {
     pub fn new() -> Self {
-        let (tx, rx) = channel();
-        thread::spawn(move || {
-            for key in Terminal::get_events() {
-                tx.send(key.unwrap()).unwrap();
-            }
-        });
         Tui {
             bounds: Terminal::get_boundaries(),
             config: Config::get_config(),
             terminal: Terminal::get_raw(),
             calendars: Vec::new(),
-            events: rx,
         }
     }
 
@@ -40,23 +32,33 @@ impl Tui {
         exit(0);
     }
 
-    fn tui_loop(&mut self) {
+    fn init(&mut self) {
         self.draw_background();
-        self.create_calendars();
-        self.draw_calendars();
+        self.create_calendars_threads();
+    }
+
+    fn tui_loop(&mut self) {
+        self.init();
+        let (tx, rx) = channel();
+        thread::spawn(move || {
+            for key in Terminal::get_events() {
+                tx.send(key.unwrap()).unwrap();
+            }
+        });
         let mut calendar_index: usize = 0;
         loop {
-            self.handle_event(&mut calendar_index);
+            self.handle_event(&mut calendar_index, &rx);
             self.terminal.flush();
             if self.bounds != Terminal::get_boundaries() {
                 calendar_index = 0;
                 self.reset();
+                thread::sleep(Duration::from_secs(1));
             }
         }
     }
 
-    fn handle_event(&mut self, index: &mut usize) {
-        if let Ok(event) = self.events.try_recv() {
+    fn handle_event(&mut self, index: &mut usize, rx: &Receiver<Event>) {
+        if let Ok(event) = rx.try_recv() {
             match event {
                 Event::Key(key) => self.handle_key(key, index),
                 Event::Mouse(mouse) => self.handle_mouse(mouse, index),
@@ -139,20 +141,71 @@ impl Tui {
         );
     }
 
-    fn create_calendars(&mut self) {
-        let mut date = Local::today().with_day(1).unwrap();
-        let mut position = Position::new_origin();
-        loop { // TODO config option for max amount of calendars
-            let calendar = Calendar::new(date, position, &self.config);
-            self.calendars.push(calendar);
-            let month = date.month();
-            while month == date.month() { date = date.succ() };
-            position.set_x(position.get_x() + 24);
-            if !position.clone().set_x(position.get_x() + 24) { // Check if future position will work
-                if !position.set(1, position.get_y() + 14) || !position.clone().set_y(position.get_y() + 14) {
-                     break;
+    pub fn create_calendars_threads(&mut self) {
+        let columns = {
+            let mut position = Position::new_origin();
+            loop {
+                if !position.set_x(position.get_x() + 24) {
+                    break;
                 }
             }
+            (position.get_x() as usize) / 24
+        };
+        let rows = {
+            let mut position = Position::new_origin();
+            loop {
+                if !position.set_y(position.get_y() + 14) {
+                    break;
+                } 
+            }
+            (position.get_y() as usize) / 14
+        };
+        let threads = 
+        if rows > 10 || columns > 10 { 10 } 
+        else if rows >= columns { rows }
+        else { columns };
+        let mut handles = Vec::new();
+        let date = Local::today().with_day(1).unwrap();
+        let position = Position::new_origin();
+        let vec = vec![Calendar::dummy(&self.config); rows*columns];
+        let mutex = Arc::new(Mutex::new((date, position, 0, vec)));
+        for _ in 0..threads {
+            let config = self.config; // Auto cloned config
+            let mutex = Arc::clone(&mutex);
+            let handle = thread::spawn(move || {
+                Tui::thread_create_calendar(mutex, config);
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+        
+        if let Ok(lock) = Arc::try_unwrap(mutex) {
+            self.calendars = lock.into_inner().unwrap().3;
+        }
+    }
+
+    fn thread_create_calendar(mutex: Arc<Mutex<(Date<Local>, Position, usize, Vec<Calendar>)>>, config: Config) {
+        loop {
+            let date;
+            let position;
+            let index;
+            { // Put in a new scope to force the lock drop and unlock for other threads
+                let mut lock  = mutex.lock().unwrap();
+                if lock.2 >= lock.3.len() { break; }
+                date = lock.0.clone();
+                position = lock.1.clone();
+                index = lock.2.clone();
+                lock.0 = (date + chrono::Duration::days(32)).with_day(1).unwrap();
+                lock.1.set_x(position.get_x() + 24);
+                if !lock.1.clone().set_x(lock.1.get_x() + 24) { lock.1.set(1, position.get_y() + 14); }
+                lock.2 += 1;
+            }
+            let mut calendar = Calendar::new(date, position, &config);
+            calendar.draw(&mut Terminal::get_raw());
+            { *mutex.lock().unwrap().3.get_mut(index).unwrap() = calendar; }
         }
     }
 
@@ -195,10 +248,8 @@ impl Tui {
         self.terminal.reset();
         self.bounds = Terminal::get_boundaries();
         self.config = Config::get_config();
-        self.calendars.clear();
-        self.draw_background();
-        self.create_calendars();
-        self.draw_calendars();
+        self.calendars.clear(); // TODO maybe dont clear but see how many we should add or remove and do so
+        self.init();
     }
 }
 
@@ -218,6 +269,7 @@ pub enum WidgetType {
     WriteBox(Position, AnsiValue),
 }
 
+#[derive(Clone)]
 pub struct Button {
     pub button_data: ButtonType,
     pub start_position: Position,
@@ -226,6 +278,7 @@ pub struct Button {
     pub fg_color: AnsiValue,
 }
 
+#[derive(Clone)]
 pub enum ButtonType {
     TextButton(String),
     CalanderDate(Date<Local>),
@@ -282,6 +335,7 @@ impl Button {
     }
 }
 
+#[derive(Clone)]
 pub struct TextBox {
     text: String,
     position: Position,
