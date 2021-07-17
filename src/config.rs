@@ -22,6 +22,7 @@ LightCyan, 14
 LightWhite, 15
 */
 
+#[derive(Clone, Copy)]
 pub struct Config {
     pub bg_color: AnsiValue,
     pub calendar_bg_color: AnsiValue,
