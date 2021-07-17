@@ -46,6 +46,8 @@ impl Tui {
                 tx.send(key.unwrap()).unwrap();
             }
         });
+        // Below forces the capture of a mouse terminal and makes sure we dont drop it
+        let _mouse_terminal_hold = self.terminal.get_mouse_terminal();
         let mut calendar_index: usize = 0;
         loop {
             self.handle_event(&mut calendar_index, &rx);
@@ -71,7 +73,7 @@ impl Tui {
         if key == self.config.quit {
             self.quit();
          } else if key == self.config.left {
-             self.calendars.get_mut(*index).unwrap()  // TODO make sure we check for incorrect index
+             self.calendars.get_mut(*index).unwrap()
              .move_cursor(&mut self.config, &mut self.terminal, Direction::Left);
          } else if key == self.config.right {
              self.calendars.get_mut(*index).unwrap()
@@ -124,15 +126,6 @@ impl Tui {
         }
     }
 
-    fn get_num_columns(&self) -> usize {
-        if self.calendars.is_empty() { return 0; }
-        let first_y = self.calendars.first().unwrap().get_start().get_y();
-        for (i, calendar) in self.calendars.iter().enumerate() {
-            if calendar.get_start().get_y() != first_y { return i };
-        }
-        self.calendars.len()
-    }
-
     fn draw_background(&mut self) {
         self.terminal.draw_large_box(
             Position::new_origin(),
@@ -142,26 +135,10 @@ impl Tui {
     }
 
     pub fn create_calendars_threads(&mut self) {
-        let columns = {
-            let mut position = Position::new_origin();
-            loop {
-                if !position.set_x(position.get_x() + 24) {
-                    break;
-                }
-            }
-            (position.get_x() as usize) / 24
-        };
-        let rows = {
-            let mut position = Position::new_origin();
-            loop {
-                if !position.set_y(position.get_y() + 14) {
-                    break;
-                } 
-            }
-            (position.get_y() as usize) / 14
-        };
+       let columns = self.get_columns();
+       let rows = self.get_rows();
         let threads = 
-        if rows > 10 || columns > 10 { 10 } 
+        if rows > 20 || columns > 20 { 20 } 
         else if rows >= columns { rows }
         else { columns };
         let mut handles = Vec::new();
@@ -185,6 +162,26 @@ impl Tui {
         if let Ok(lock) = Arc::try_unwrap(mutex) {
             self.calendars = lock.into_inner().unwrap().3;
         }
+    }
+
+    fn get_columns(&self) -> usize {
+        let mut position = Position::new_origin();
+        loop {
+            if !position.set_x(position.get_x() + 24) {
+                break;
+            }
+        }
+        (position.get_x() as usize) / 24
+    }
+
+    fn get_rows(&self) -> usize {
+        let mut position = Position::new_origin();
+        loop {
+            if !position.set_y(position.get_y() + 14) {
+                break;
+            } 
+        }
+        (position.get_y() as usize) / 14
     }
 
     fn thread_create_calendar(mutex: Arc<Mutex<(Date<Local>, Position, usize, Vec<Calendar>)>>, config: Config) {
@@ -223,6 +220,7 @@ impl Tui {
                             None => break,
                         };
                     }
+                    // TODO fix loosing mouse beacause this drops
                     calendar.draw(&mut Terminal::get_raw())
                 }
             });
@@ -237,7 +235,7 @@ impl Tui {
         let change;
         match direction {
             Direction::Up | Direction::Down => {
-                let x = self.get_num_columns();
+                let x = self.get_columns();
                 if let Direction::Up = direction {
                     if *index == 0 || *index < x { return; }
                 } else if *index + x >= self.calendars.len() { return; }

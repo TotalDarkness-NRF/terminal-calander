@@ -5,18 +5,32 @@ use termion::{clear, color::{self, Color}, cursor, input::{Events, MouseTerminal
 use crate::position::Position;
 
 pub struct Terminal {
-    terminal: MouseTerminal<RawTerminal<File>>,
+    terminal: RawTerminal<File>,
+    mouse_terminals: u8,
 }
 
 impl Terminal {
     pub fn get_raw() -> Self {
         Terminal {
-            terminal: MouseTerminal::from(termion::get_tty().unwrap().into_raw_mode().unwrap()),
+            terminal: Terminal::get_terminal(),
+            mouse_terminals: 0,
         }
     }
 
     pub fn get_events() -> Events<File>{
         termion::get_tty().unwrap().events()
+    }
+
+    fn get_terminal() -> RawTerminal<File> {
+        termion::get_tty().unwrap().into_raw_mode().unwrap()
+    }
+
+    pub fn get_mouse_terminal(&mut self) -> Result<MouseTerminal<RawTerminal<File>>, ()> {
+        if self.mouse_terminals >= 1 { Err(()) }
+        else {
+            self.mouse_terminals += 1;
+            Ok(MouseTerminal::from(Terminal::get_terminal())) 
+        }
     }
 
     pub fn write(&mut self, message: String) {
@@ -27,19 +41,18 @@ impl Terminal {
         self.restore_cursor_write(pos, format!("{}{}", color::Bg(color), message));
     }
 
-    pub fn draw_box(&mut self, pos: Position, color: &dyn Color) {
-        self.restore_cursor_write(pos, format!("{} ", color::Bg(color)));
-    }
 
     pub fn draw_large_box(&mut self, start: Position, end: Position, color: &dyn Color) {
-        // TODO maybe multithread this or find a better way
         if start.get_x() <= end.get_x() && start.get_y() <= end.get_y() {
             let mut cursor = Position::new_origin();
             for y in start.get_y()..=end.get_y() {
-                for x in start.get_x()..=end.get_x() {
-                    cursor.set(x, y);
-                    self.draw_box(cursor, color);
-                }
+                cursor.set(start.get_x(), y);
+                let format = 
+                Formatter::new()
+                .go_to(cursor)
+                .bg_color(color)
+                .text(format!("{:width$}", " ", width = (end.get_x() - start.get_x() + 1).into()));
+                self.write_format(format);
             }
         }
     }
