@@ -17,7 +17,7 @@ impl Tui {
         Tui {
             bounds: Terminal::get_boundaries(),
             config: Config::get_config(),
-            terminal: Terminal::get_raw(),
+            terminal: Terminal::new_raw(),
             calendars: Vec::new(),
         }
     }
@@ -47,6 +47,7 @@ impl Tui {
             }
         });
         // Below forces the capture of a mouse terminal and makes sure we dont drop it
+        // TODO find out why terminal starts printing random stuff on exit
         let _mouse_terminal_hold = self.terminal.get_mouse_terminal();
         let mut calendar_index: usize = 0;
         loop {
@@ -135,8 +136,8 @@ impl Tui {
     }
 
     pub fn create_calendars_threads(&mut self) {
-       let columns = self.get_columns();
-       let rows = self.get_rows();
+       let columns = Tui::get_columns();
+       let rows = Tui::get_rows();
         let threads = 
         if rows > 20 || columns > 20 { 20 } 
         else if rows >= columns { rows }
@@ -164,24 +165,34 @@ impl Tui {
         }
     }
 
-    fn get_columns(&self) -> usize {
+    fn get_columns() -> usize {
         let mut position = Position::new_origin();
+        let mut count:  usize = 0;
         loop {
-            if !position.set_x(position.get_x() + 24) {
+            if !position.set_x(position.get_x() + 23) {
+                break;
+            } else { count += 1 } 
+            
+            if !position.set_x(position.get_x() + 1) {
                 break;
             }
         }
-        (position.get_x() as usize) / 24
+        count
     }
 
-    fn get_rows(&self) -> usize {
+    fn get_rows() -> usize {
         let mut position = Position::new_origin();
+        let mut count: usize = 0;
         loop {
-            if !position.set_y(position.get_y() + 14) {
+            if !position.set_y(position.get_y() + 13) {
                 break;
-            } 
+            } else { count += 1; }
+            
+            if !position.set_y(position.get_y() + 1) {
+                break;
+            }
         }
-        (position.get_y() as usize) / 14
+        count
     }
 
     fn thread_create_calendar(mutex: Arc<Mutex<(Date<Local>, Position, usize, Vec<Calendar>)>>, config: Config) {
@@ -197,7 +208,7 @@ impl Tui {
                 index = lock.2.clone();
                 lock.0 = (date + chrono::Duration::days(32)).with_day(1).unwrap();
                 lock.1.set_x(position.get_x() + 24);
-                if !lock.1.clone().set_x(lock.1.get_x() + 24) { lock.1.set(1, position.get_y() + 14); }
+                if (index + 1) % Tui::get_columns() == 0 { lock.1.set(1, position.get_y() + 14); }
                 lock.2 += 1;
             }
             let calendar = Calendar::new(date, position, &config);
@@ -220,8 +231,7 @@ impl Tui {
                             None => break,
                         };
                     }
-                    // TODO fix loosing mouse beacause this drops
-                    calendar.draw(&mut Terminal::get_raw())
+                    calendar.draw(&mut Terminal::new());
                 }
             });
             handles.push(handle);
@@ -235,7 +245,7 @@ impl Tui {
         let change;
         match direction {
             Direction::Up | Direction::Down => {
-                let x = self.get_columns();
+                let x = Tui::get_columns();
                 if let Direction::Up = direction {
                     if *index == 0 || *index < x { return; }
                 } else if *index + x >= self.calendars.len() { return; }
