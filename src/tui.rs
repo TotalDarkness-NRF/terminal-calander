@@ -1,4 +1,4 @@
-use std::{process::exit, sync::{Arc, Mutex, mpsc::{Receiver, channel}}, thread, time::Duration};
+use std::{process::exit, sync::{Arc, Mutex, mpsc::{Receiver, channel}}, thread};
 
 use chrono::{Date, Datelike, Local};
 use termion::{color::AnsiValue, event::{Event, Key, MouseButton, MouseEvent}};
@@ -35,6 +35,7 @@ impl Tui {
     fn init(&mut self) {
         self.draw_background();
         self.create_calendars_threads();
+        self.draw_calendars();
     }
 
     fn tui_loop(&mut self) {
@@ -52,7 +53,6 @@ impl Tui {
             if self.bounds != Terminal::get_boundaries() {
                 calendar_index = 0;
                 self.reset();
-                thread::sleep(Duration::from_secs(1));
             }
         }
     }
@@ -203,15 +203,33 @@ impl Tui {
                 if !lock.1.clone().set_x(lock.1.get_x() + 24) { lock.1.set(1, position.get_y() + 14); }
                 lock.2 += 1;
             }
-            let mut calendar = Calendar::new(date, position, &config);
-            calendar.draw(&mut Terminal::get_raw());
+            let calendar = Calendar::new(date, position, &config);
             { *mutex.lock().unwrap().3.get_mut(index).unwrap() = calendar; }
         }
     }
 
     fn draw_calendars(&mut self) {
-        for calendar in self.calendars.iter_mut() {
-            calendar.draw(&mut self.terminal);
+        let mut handles = Vec::new();
+        let mutex = Arc::new(Mutex::new(self.calendars.clone()));
+        let threads: usize = if self.calendars.len() > 20 { 20 } else { self.calendars.len() };
+        for _ in 0..threads {
+            let mutex = Arc::clone(&mutex);
+            let handle = thread::spawn(move || {
+                loop {
+                    let mut calendar: Calendar;
+                    {// Introduce scope to remove lock fast
+                        match mutex.lock().unwrap().pop() {
+                            Some(value) => calendar = value,
+                            None => break,
+                        };
+                    }
+                    calendar.draw(&mut Terminal::get_raw())
+                }
+            });
+            handles.push(handle);
+        }
+        for handle in handles {
+            handle.join().unwrap();
         }
     }
 
@@ -248,7 +266,7 @@ impl Tui {
         self.terminal.reset();
         self.bounds = Terminal::get_boundaries();
         self.config = Config::get_config();
-        self.calendars.clear(); // TODO maybe dont clear but see how many we should add or remove and do so
+        self.calendars.clear();
         self.init();
     }
 }
