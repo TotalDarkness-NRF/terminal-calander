@@ -58,7 +58,7 @@ impl Position {
 
     pub fn is_in_boundary(&self) -> bool {
         let bounds = &Terminal::get_boundaries();
-        self.x > 0 && self.y > 0 && self.get_x() <= bounds.get_x() && self.get_y() <= bounds.get_y()
+        self.x > 0 && self.y > 0 && self.get_x() <= bounds.get_x() + 1 && self.get_y() <= bounds.get_y() + 1
     }
 }
 
