@@ -1,4 +1,4 @@
-use std::{process::exit, sync::{Arc, Mutex, mpsc::{Receiver, channel}}, thread};
+use std::{sync::{Arc, Mutex, mpsc::{Receiver, channel}}, thread};
 
 use chrono::{Date, Datelike, Local};
 use termion::{color::AnsiValue, event::{Event, Key, MouseButton, MouseEvent}};
@@ -10,6 +10,7 @@ pub struct Tui {
     config: Config,
     terminal: Terminal,
     calendars: Vec<Calendar>,
+    quit: bool,
 }
 
 impl Tui {
@@ -19,17 +20,13 @@ impl Tui {
             config: Config::get_config(),
             terminal: Terminal::new_raw(),
             calendars: Vec::new(),
+            quit: false,
         }
     }
 
     pub fn start(&mut self) {
         self.terminal.begin();
         self.tui_loop();
-    }
-
-    fn quit(&mut self) {
-        self.terminal.exit();
-        exit(0);
     }
 
     fn init(&mut self) {
@@ -47,10 +44,9 @@ impl Tui {
             }
         });
         // Below forces the capture of a mouse terminal and makes sure we dont drop it
-        // TODO find out why terminal starts printing random stuff on exit
-        let _mouse_terminal_hold = self.terminal.get_mouse_terminal();
+        let mouse_terminal_hold = self.terminal.get_mouse_terminal();
         let mut calendar_index: usize = 0;
-        loop {
+        while !self.quit {
             self.handle_event(&mut calendar_index, &rx);
             self.terminal.flush();
             if self.bounds != Terminal::get_boundaries() {
@@ -58,21 +54,23 @@ impl Tui {
                 self.reset();
             }
         }
+        self.terminal.exit();
+        drop(mouse_terminal_hold.unwrap()); // Force mouse terminal to stop
     }
 
     fn handle_event(&mut self, index: &mut usize, rx: &Receiver<Event>) {
         if let Ok(event) = rx.try_recv() {
-            match event {
+            return match event {
                 Event::Key(key) => self.handle_key(key, index),
                 Event::Mouse(mouse) => self.handle_mouse(mouse, index),
                 Event::Unsupported(_) => (),
-            }
+            };
         }
     }
 
     fn handle_key(&mut self, key: Key, index: &mut usize) {
         if key == self.config.quit {
-            self.quit();
+            self.quit = true;
          } else if key == self.config.left {
              self.calendars.get_mut(*index).unwrap()
              .move_cursor(&mut self.config, &mut self.terminal, Direction::Left);
@@ -98,7 +96,7 @@ impl Tui {
 
     fn handle_mouse(&mut self, mouse: MouseEvent, index: &mut usize) {
         if let MouseEvent::Press(mouse, x, y) = mouse {
-            if !matches!(mouse, MouseButton::Left) { return }
+            if !matches!(mouse, MouseButton::Left) { return; }
             let mut calendar_change = false;
             let mut future_index = self.calendars.len() + 1;
             let mouse_pos = Position::new(x, y);
