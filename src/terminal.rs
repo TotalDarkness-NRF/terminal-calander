@@ -32,6 +32,7 @@ impl Terminal {
     }
 
     pub fn draw_large_box(&mut self, start: Position, end: Position, color: &dyn Color) {
+        // TODO maybe multithread this or find a better way
         if start.get_x() <= end.get_x() && start.get_y() <= end.get_y() {
             let mut cursor = Position::new_origin();
             for y in start.get_y()..=end.get_y() {
@@ -55,12 +56,13 @@ impl Terminal {
         }
     }
 
-    pub fn _clear_all(&mut self) {
+    pub fn clear_all(&mut self) {
         self.write(format!("{}{}", clear::All, cursor::Goto::default()));
     }
 
     pub fn reset(&mut self) {
         self.write(format!("{}{}{}{}", cursor::Goto::default(), color::Bg(color::Reset), color::Fg(color::Reset), style::Reset));
+        self.clear_all();
     }
 
     pub fn flush(&mut self) {
