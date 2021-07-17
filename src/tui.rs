@@ -134,8 +134,8 @@ impl Tui {
     }
 
     pub fn create_calendars_threads(&mut self) {
-       let columns = Tui::get_columns();
-       let rows = Tui::get_rows();
+        let columns = Tui::get_columns();
+        let rows = Tui::get_rows();
         let threads = 
         if rows > 20 || columns > 20 { 20 } 
         else if rows >= columns { rows }
@@ -143,13 +143,16 @@ impl Tui {
         let mut handles = Vec::new();
         let date = Local::today().with_day(1).unwrap();
         let position = Position::new_origin();
+        // Put all this here because they all relate and need to be in sync
+        let mutex = Arc::new(Mutex::new((date, position, 0)));
         let vec = vec![Calendar::dummy(&self.config); rows*columns];
-        let mutex = Arc::new(Mutex::new((date, position, 0, vec)));
+        let mutex_vec = Arc::new(Mutex::new(vec));
         for _ in 0..threads {
             let config = self.config; // Auto cloned config
-            let mutex = Arc::clone(&mutex);
+            let mutex = mutex.clone();
+            let mutex_vec = mutex_vec.clone();
             let handle = thread::spawn(move || {
-                Tui::thread_create_calendar(mutex, config);
+                Tui::thread_create_calendar(mutex, mutex_vec, config);
             });
             handles.push(handle);
         }
@@ -158,8 +161,8 @@ impl Tui {
             handle.join().unwrap();
         }
         
-        if let Ok(lock) = Arc::try_unwrap(mutex) {
-            self.calendars = lock.into_inner().unwrap().3;
+        if let Ok(lock) = Arc::try_unwrap(mutex_vec) {
+            self.calendars = lock.into_inner().unwrap();
         }
     }
 
@@ -193,14 +196,14 @@ impl Tui {
         count
     }
 
-    fn thread_create_calendar(mutex: Arc<Mutex<(Date<Local>, Position, usize, Vec<Calendar>)>>, config: Config) {
+    fn thread_create_calendar(mutex: Arc<Mutex<(Date<Local>, Position, usize)>>, mutex_vec: Arc<Mutex<Vec<Calendar>>>, config: Config) {
         loop {
             let date;
             let position;
             let index;
             { // Put in a new scope to force the lock drop and unlock for other threads
                 let mut lock  = mutex.lock().unwrap();
-                if lock.2 >= lock.3.len() { break; }
+                if lock.2 >= mutex_vec.lock().unwrap().len() { break; } // Quick check then drop vec lock
                 date = lock.0.clone();
                 position = lock.1.clone();
                 index = lock.2.clone();
@@ -210,7 +213,7 @@ impl Tui {
                 lock.2 += 1;
             }
             let calendar = Calendar::new(date, position, &config);
-            { *mutex.lock().unwrap().3.get_mut(index).unwrap() = calendar; }
+            { *mutex_vec.lock().unwrap().get_mut(index).unwrap() = calendar; }
         }
     }
 
