@@ -55,13 +55,12 @@ impl Terminal {
         }
     }
 
-    pub fn clear_all(&mut self) {
+    pub fn _clear_all(&mut self) {
         self.write(format!("{}{}", clear::All, cursor::Goto::default()));
     }
 
     pub fn reset(&mut self) {
         self.write(format!("{}{}{}{}", cursor::Goto::default(), color::Bg(color::Reset), color::Fg(color::Reset), style::Reset));
-        self.clear_all();
     }
 
     pub fn flush(&mut self) {
