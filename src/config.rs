@@ -1,4 +1,4 @@
-use std::{env,fs::File,io::{BufRead, BufReader}};
+use std::{env, fs::File, io::{BufRead, BufReader}, sync::{Arc, Mutex}, thread};
 
 use termion::{color::AnsiValue, event::Key};
 
@@ -50,28 +50,55 @@ pub struct Config {
 impl Config {
     pub fn get_config() -> Self {
         // TODO handle errors
-        let mut config = Config::get_default_config();
+        let config = Config::get_default_config();
         let file = env::current_exe().unwrap().parent().unwrap().join("config.txt"); 
         // TODO this path is dumb. Instead store it either in .cofing, in current_dir() or specified by user
         if !file.exists() { return config };
         let file = File::open(file).unwrap();
         let reader = BufReader::new(file);
-        for line in reader.lines() {
-            let line = line.unwrap(); // TODO Ignore errors.
-            let line = line.trim().to_lowercase();
-            if line.starts_with('#') { continue }
-            let split_index;
-            match line.find('=') {
-                Some(index) => split_index = index,
-                None => continue,
-            }
-            let (config_var, value) = line.split_at(split_index);
-            let value = value.replace(" ", "").replace("=", "");
-            let config_var = config_var.trim();
-            let value = value.trim();
-            if config_var.contains("color") {
-                match_colors(&mut config, config_var, value);
-            }
+        let mutex = Arc::new(Mutex::new(reader.lines()));
+        let config_mutex = Arc::new(Mutex::new(config));
+        let mut handlers = Vec::new();
+        for _ in 0..20 {
+            let mutex = mutex.clone();
+            let config_mutex = config_mutex.clone();
+            let handler = thread::spawn( move || {
+                loop {
+                    let line;
+                    { 
+                        match mutex.lock().unwrap().next() {
+                            Some(value) => line = value.unwrap(),
+                            None => break,
+                        }
+                    }
+                    let line = line.trim().to_lowercase();
+                    if line.starts_with('#') { continue }
+                    let split_index;
+                    match line.find('=') {
+                        Some(index) => split_index = index,
+                        None => continue,
+                    }
+                    let (config_var, value) = line.split_at(split_index);
+                    let value = value.replace(" ", "").replace("=", "");
+                    let config_var = config_var.trim();
+                    let value = value.trim();
+                    {
+                        let mut config = config_mutex.lock().unwrap();
+                        if config_var.contains("color") {
+                            match_colors(&mut config, config_var, value);
+                        }
+                    }
+                }
+            });
+            handlers.push(handler);
+        }
+        
+        for handler in handlers {
+            handler.join().unwrap();
+        }
+
+        if let Ok(lock) = Arc::try_unwrap(config_mutex) {
+            return lock.into_inner().unwrap();
         }
         config
     }

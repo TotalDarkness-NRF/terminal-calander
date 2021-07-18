@@ -48,7 +48,6 @@ impl Tui {
         let mut calendar_index: usize = 0;
         while !self.quit {
             self.handle_event(&mut calendar_index, &rx);
-            self.terminal.flush();
             if self.bounds != Terminal::get_boundaries() {
                 calendar_index = 0;
                 self.reset();
@@ -60,11 +59,12 @@ impl Tui {
 
     fn handle_event(&mut self, index: &mut usize, rx: &Receiver<Event>) {
         if let Ok(event) = rx.try_recv() {
-            return match event {
+            match event {
                 Event::Key(key) => self.handle_key(key, index),
                 Event::Mouse(mouse) => self.handle_mouse(mouse, index),
                 Event::Unsupported(_) => (),
-            };
+            }
+            self.terminal.flush();
         }
     }
 
