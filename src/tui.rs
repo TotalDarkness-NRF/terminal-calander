@@ -50,7 +50,7 @@ impl Tui {
             self.handle_event(&mut calendar_index, &rx);
             if self.bounds != Terminal::get_boundaries() {
                 calendar_index = 0;
-                self.reset();
+                self.reset(Local::today().with_day(1).unwrap());
             }
         }
         self.terminal.exit();
@@ -92,7 +92,45 @@ impl Tui {
              self.move_calendar(index, Direction::Up);
          } else if key == config.calendar_down {
              self.move_calendar(index, Direction::Down);            
+         } else if key == config.go_back_time {
+             self.reset(self.time_travel(Direction::Left));
+         } else if key == config.go_forward_time {
+             self.reset(self.time_travel(Direction::Right));
+         } else if key == config.go_back_calendar {
+             self.reset(self.time_travel(Direction::Down));
+         } else if key == config.go_forward_calendar {
+             self.reset(self.time_travel(Direction::Up));
          }
+    }
+
+    fn time_travel(&self, direction: Direction) -> Date<Local> {
+        if self.calendars.is_empty() { return Local::today().with_day(1).unwrap() }
+        let date = self.calendars.first().unwrap().get_start_date();
+        let other_date = self.calendars.last().unwrap().get_start_date();
+        let result = 
+        match direction {
+            Direction::Left => {
+                let other_date = other_date + chrono::Duration::days(5); // Skip a few days into that month.
+                date + date.signed_duration_since(other_date)
+            }, 
+            Direction::Right => {
+                let other_date = other_date + chrono::Duration::days(32); // Skip a month and a bit
+                date + other_date.signed_duration_since(date)
+            },
+            Direction::Up => date + chrono::Duration::days(32),
+            Direction::Down => date - chrono::Duration::days(5),
+        }.with_day(1);
+
+        match result {
+            Some(value) => value,
+            None => {
+                if let Direction::Left = direction {
+                    chrono::MIN_DATE.with_timezone(&Local)
+                } else {
+                    chrono::MAX_DATE.with_timezone(&Local)
+                }
+            },
+        }
     }
 
     fn handle_mouse(&mut self, mouse: MouseEvent, index: &mut usize) {
@@ -264,12 +302,12 @@ impl Tui {
         calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
     }
 
-    fn reset(&mut self) {
+    fn reset(&mut self, date: Date<Local>) {
         self.terminal.reset();
         self.bounds = Terminal::get_boundaries();
         self.config = Config::get_config();
         self.calendars.clear();
-        self.init(Local::today().with_day(1).unwrap());
+        self.init(date);
     }
 }
 
