@@ -42,6 +42,10 @@ pub struct Config {
     pub calendar_left: Key,
     pub calendar_right: Key,
     pub calendar_down: Key,
+    pub go_back_time: Key,
+    pub go_forward_time: Key,
+    pub go_back_calendar:Key,
+    pub go_forward_calendar: Key,
     pub change_calendar_reset_cursor: bool,
     pub unselect_change_calendar_cursor: bool,
     // TODO have buttons to move calander right left etc
@@ -120,6 +124,10 @@ impl Config {
             calendar_left: Key::Char('A'),
             calendar_down: Key::Char('S'),
             calendar_right: Key::Char('D'),
+            go_back_time: Key::Left,
+            go_forward_time: Key::Right,
+            go_back_calendar: Key::Down,
+            go_forward_calendar: Key::Up,
             change_calendar_reset_cursor: true,
             unselect_change_calendar_cursor: true, 
         }
