@@ -131,6 +131,10 @@ impl Calendar {
             None => (),
         }
     }
+
+    pub fn get_start_date(&self) -> Date<Local> {
+        self.start_date
+    }
 }
 
 impl Widget for Calendar {
