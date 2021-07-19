@@ -54,15 +54,18 @@ impl Config {
         let file = env::current_exe().unwrap().parent().unwrap().join("config.txt"); 
         // TODO this path is dumb. Instead store it either in .cofing, in current_dir() or specified by user
         if !file.exists() { return config };
-        let file = File::open(file).unwrap();
+        //let file;
+        let file = match File::open(file) {
+            Ok(file) => file,
+            Err(_) => return config,
+        };
         let reader = BufReader::new(file);
         let mutex = Arc::new(Mutex::new(reader.lines()));
         let config_mutex = Arc::new(Mutex::new(config));
-        let mut handlers = Vec::new();
         for _ in 0..20 {
             let mutex = mutex.clone();
             let config_mutex = config_mutex.clone();
-            let handler = thread::spawn( move || {
+            thread::spawn( move || {
                 loop {
                     let line;
                     { 
@@ -89,18 +92,12 @@ impl Config {
                         }
                     }
                 }
-            });
-            handlers.push(handler);
-        }
-        
-        for handler in handlers {
-            handler.join().unwrap();
+            }).join().unwrap();
         }
 
         if let Ok(lock) = Arc::try_unwrap(config_mutex) {
-            return lock.into_inner().unwrap();
-        }
-        config
+            lock.into_inner().unwrap()
+        } else { config }
     }
 
     fn get_default_config() -> Self {

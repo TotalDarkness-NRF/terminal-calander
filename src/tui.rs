@@ -31,7 +31,7 @@ impl Tui {
 
     fn init(&mut self) {
         self.draw_background();
-        self.create_calendars_threads();
+        self.create_calendars(Local::today().with_day(1).unwrap());
         self.draw_calendars();
     }
 
@@ -133,34 +133,26 @@ impl Tui {
         );
     }
 
-    pub fn create_calendars_threads(&mut self) {
+    pub fn create_calendars(&mut self, date: Date<Local>) {
         let columns = Tui::get_columns();
         let rows = Tui::get_rows();
         let threads = 
         if rows > 20 || columns > 20 { 20 } 
         else if rows >= columns { rows }
         else { columns };
-        let mut handles = Vec::new();
-        let date = Local::today().with_day(1).unwrap();
-        let position = Position::new_origin();
         // Put all this here because they all relate and need to be in sync
-        let mutex = Arc::new(Mutex::new((date, position, 0)));
+        let mutex = Arc::new(Mutex::new((date, Position::new_origin(), 0)));
         let vec = vec![Calendar::dummy(&self.config); rows*columns];
         let mutex_vec = Arc::new(Mutex::new(vec));
         for _ in 0..threads {
             let config = self.config; // Auto cloned config
             let mutex = mutex.clone();
             let mutex_vec = mutex_vec.clone();
-            let handle = thread::spawn(move || {
+            thread::spawn(move || {
                 Tui::thread_create_calendar(mutex, mutex_vec, config);
-            });
-            handles.push(handle);
+            }).join().unwrap();
         }
 
-        for handle in handles {
-            handle.join().unwrap();
-        }
-        
         if let Ok(lock) = Arc::try_unwrap(mutex_vec) {
             self.calendars = lock.into_inner().unwrap();
         }
