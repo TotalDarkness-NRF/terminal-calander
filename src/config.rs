@@ -170,3 +170,56 @@ fn parse_color(mut color_string: &str) -> Option<AnsiValue> {
         _ => None,
     }
 }
+
+fn parse_key(mut key_string: &str) -> Option<Key> {
+    if key_string.chars().count() == 1 {
+        return match key_string.chars().next() {
+            Some(char) => Some(Key::Char(char)),
+            None => None,
+        };
+    }
+    // TODO look for these keys
+    /*
+    /// Backspace.
+    Backspace,
+    /// Left arrow.
+    Left,
+    /// Right arrow.
+    Right,
+    /// Up arrow.
+    Up,
+    /// Down arrow.
+    Down,
+    /// Home key.
+    Home,
+    /// End key.
+    End,
+    /// Page Up key.
+    PageUp,
+    /// Page Down key.
+    PageDown,
+    /// Backward Tab key.
+    BackTab,
+    /// Delete key.
+    Delete,
+    /// Insert key.
+    Insert,
+    /// Function keys.
+    ///
+    /// Only function keys 1 through 12 are supported.
+    F(u8),
+    /// Normal character.
+    Char(char),
+    /// Alt modified character.
+    Alt(char),
+    /// Ctrl modified character.
+    ///
+    /// Note that certain keys may not be modifiable with `ctrl`, due to limitations of terminals.
+    Ctrl(char),
+    /// Null byte.
+    Null,
+    /// Esc key.
+    Esc,
+        */
+    None
+}
