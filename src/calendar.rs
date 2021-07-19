@@ -88,7 +88,7 @@ impl Calendar {
         }
     }
 
-    pub fn move_cursor(&mut self, config: &mut Config, terminal: &mut Terminal, direction: Direction) {
+    pub fn move_cursor(&mut self, config: &Config, terminal: &mut Terminal, direction: Direction) {
         let index_to = match direction {
             Direction::Up => 
                 if self.cursor <= 7 { 0 } else { self.cursor - 7 },
@@ -102,7 +102,7 @@ impl Calendar {
         self.select_button(config, terminal, index_to);
     }
 
-    pub fn select_button(&mut self, config: &mut Config, terminal: &mut Terminal, index_to: usize) {
+    pub fn select_button(&mut self, config: &Config, terminal: &mut Terminal, index_to: usize) {
         if index_to >= self.buttons.len() { return; }
         if self.cursor != index_to { self.unselect_button(config, terminal) };
         let button = self.buttons.iter_mut().skip(index_to).next();
@@ -119,7 +119,7 @@ impl Calendar {
         }
     }
 
-    pub fn unselect_button(&mut self, config: &mut Config, terminal: &mut Terminal) {
+    pub fn unselect_button(&mut self, config: &Config, terminal: &mut Terminal) {
         match self.buttons.get_mut(self.cursor) {
             Some(button) => {
                 button.bg_color = match button.button_data {

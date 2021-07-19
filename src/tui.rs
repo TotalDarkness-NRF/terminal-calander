@@ -29,14 +29,14 @@ impl Tui {
         self.tui_loop();
     }
 
-    fn init(&mut self) {
+    fn init(&mut self, date: Date<Local>) {
         self.draw_background();
-        self.create_calendars(Local::today().with_day(1).unwrap());
+        self.create_calendars(date);
         self.draw_calendars();
     }
 
     fn tui_loop(&mut self) {
-        self.init();
+        self.init(Local::today().with_day(1).unwrap());
         let (tx, rx) = channel();
         thread::spawn(move || {
             for key in Terminal::get_events() {
@@ -69,27 +69,28 @@ impl Tui {
     }
 
     fn handle_key(&mut self, key: Key, index: &mut usize) {
-        if key == self.config.quit {
+        let config = &self.config;
+        if key == config.quit {
             self.quit = true;
-         } else if key == self.config.left {
+         } else if key == config.left {
              self.calendars.get_mut(*index).unwrap()
-             .move_cursor(&mut self.config, &mut self.terminal, Direction::Left);
-         } else if key == self.config.right {
+             .move_cursor(&config, &mut self.terminal, Direction::Left);
+         } else if key == config.right {
              self.calendars.get_mut(*index).unwrap()
-             .move_cursor(&mut self.config, &mut self.terminal, Direction::Right);
-         } else if key == self.config.up {
+             .move_cursor(&config, &mut self.terminal, Direction::Right);
+         } else if key == config.up {
              self.calendars.get_mut(*index).unwrap()
-             .move_cursor(&mut self.config, &mut self.terminal, Direction::Up);
-         } else if key == self.config.down {
+             .move_cursor(&config, &mut self.terminal, Direction::Up);
+         } else if key == config.down {
              self.calendars.get_mut(*index).unwrap()
-             .move_cursor(&mut self.config, &mut self.terminal, Direction::Down);
-         } else if key == self.config.calendar_left {
+             .move_cursor(&config, &mut self.terminal, Direction::Down);
+         } else if key == config.calendar_left {
              self.move_calendar(index, Direction::Left);
-         } else if key == self.config.calendar_right {
+         } else if key == config.calendar_right {
              self.move_calendar(index, Direction::Right);
-         } else if key == self.config.calendar_up {
+         } else if key == config.calendar_up {
              self.move_calendar(index, Direction::Up);
-         } else if key == self.config.calendar_down {
+         } else if key == config.calendar_down {
              self.move_calendar(index, Direction::Down);            
          }
     }
@@ -268,7 +269,7 @@ impl Tui {
         self.bounds = Terminal::get_boundaries();
         self.config = Config::get_config();
         self.calendars.clear();
-        self.init();
+        self.init(Local::today().with_day(1).unwrap());
     }
 }
 
