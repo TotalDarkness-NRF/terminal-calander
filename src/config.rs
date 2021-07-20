@@ -44,7 +44,7 @@ pub struct Config {
     pub calendar_down: Key,
     pub go_back_time: Key,
     pub go_forward_time: Key,
-    pub go_back_calendar:Key,
+    pub go_back_calendar: Key,
     pub go_forward_calendar: Key,
     pub change_calendar_reset_cursor: bool,
     pub unselect_change_calendar_cursor: bool,
@@ -91,9 +91,10 @@ impl Config {
                     let value = value.trim();
                     {
                         let mut config = config_mutex.lock().unwrap();
-                        if config_var.contains("color") {
-                            match_colors(&mut config, config_var, value);
-                        }
+                        if config.match_boolean(config_var, value)
+                        || config.match_colors(config_var, value)
+                        || config.match_key(config_var, value) 
+                        { continue }
                     }
                 }
             }).join().unwrap();
@@ -132,21 +133,75 @@ impl Config {
             unselect_change_calendar_cursor: true, 
         }
     }
+
+    fn match_boolean(&mut self, config_var: &str, value: &str) -> bool {
+        let config = self;
+        if let Some(value) = parse_boolean(value) {
+            match config_var {
+                "change_calendar_reset_cursor" => config.change_calendar_reset_cursor = value,
+                "unselect_change_calendar_cursor" => config.unselect_change_calendar_cursor = value,
+                _ => return false,
+            }
+            return true;
+        }
+        false
+    }
+
+    fn match_colors(&mut self, config_var: &str, value: &str) -> bool {
+        let config = self;
+        if let Some(value) = parse_color(value) {
+            match config_var {
+                "bg_color" => config.bg_color = value,
+                "calendar_bg_color" => config.calendar_bg_color = value,
+                "date_bg_color" => config.date_bg_color = value,
+                "text_button_bg_color" => config.text_button_bg_color = value,
+                "date_num_color" => config.date_num_color = value,
+                "month_text_color" => config.month_text_color = value,
+                "weekday_bg_color" => config.weekday_bg_color = value,
+                "select_bg_date_color" => config.select_bg_date_color = value,
+                "select_bg_text_button_color" => config.select_bg_text_button_color = value,
+                _ => return false,
+            }
+            return true
+        }
+        false
+    }
+
+    fn match_key(&mut self, config_var: &str, value: &str) -> bool {
+        let config = self;
+        if let Some(key) = parse_key(value) {
+            match config_var {
+                "quit" => config.quit = key,
+                "up" => config.up = key,
+                "left" => config.left = key,
+                "down" => config.down = key,
+                "right" => config.right = key,
+                "calendar_up" => config.calendar_up = key,
+                "calendar_left" => config.calendar_left = key,
+                "calendar_right" => config.calendar_right = key,
+                "calendar_down" => config.calendar_down = key,
+                "go_back_time" => config.go_back_time = key,
+                "go_forward_time" => config.go_forward_time = key,
+                "go_back_calendar" => config.go_back_calendar = key,
+                "go_forward_calendar" => config.go_forward_calendar = key,
+                _ => return false,
+            }
+            return true
+        }
+        false
+    }
 }
 
-fn match_colors(config: &mut Config, config_var: &str, value: &str) {
-    if let Some(value) = parse_color(value) {
-        match config_var {
-            "bg_color" => config.bg_color = value,
-            "calendar_bg_color" => config.calendar_bg_color = value,
-            "date_bg_color" => config.date_bg_color = value,
-            "text_button_bg_color" => config.text_button_bg_color = value,
-            "date_num_color" => config.date_num_color = value,
-            "month_text_color" => config.month_text_color = value,
-            "weekday_bg_color" => config.weekday_bg_color = value,
-            "select_bg_date_color" => config.select_bg_date_color = value,
-            "select_bg_text_button_color" => config.select_bg_text_button_color = value,
-            _ => (),
+fn parse_boolean(color_string: &str) -> Option<bool> {
+    if let Ok(bool) = color_string.parse::<bool>() {
+        return Some(bool);
+    } else {
+        match color_string {
+            "no" | "n" | "f" | "!true" | "nottrue" | "deny" | "negative" | "out" | ":(" | ":#" =>
+            Some(false),
+            "yes" | "y" | "t" | "!false" | "notfalse" | "accept" | "positive" | "in" | ":)" | ":3" =>
+            Some(true),
+            _ => None,
         }
     }
 }
@@ -176,55 +231,46 @@ fn parse_color(mut color_string: &str) -> Option<AnsiValue> {
     }
 }
 
-fn parse_key(mut key_string: &str) -> Option<Key> {
-    if key_string.chars().count() == 1 {
-        return match key_string.chars().next() {
-            Some(char) => Some(Key::Char(char)),
-            None => None,
-        };
+fn parse_key(key_string: &str) -> Option<Key> {
+    if let Ok(char) = key_string.parse::<char>(){
+        return Some(Key::Char(char));
+    } else if key_string.contains('(') && key_string.contains(')') {
+        let index = key_string.find("(").unwrap();
+        let (key, value) = key_string.split_at(index);
+        let value = value.replace('(', "").replace(')', "");
+        match key {
+            "alt" => 
+                if let Ok(char) = value.parse::<char>() {
+                    return Some(Key::Alt(char));
+                },
+            "ctrl" | "control" => 
+                if let Ok(char) = value.parse::<char>() {
+                    return Some(Key::Ctrl(char));
+                },
+            "f" | "function" =>
+                if let Ok(u8) = value.parse::<u8>() {
+                    if u8 <= 12 { return Some(Key::F(u8)); }
+                },
+            _ => (),
+        }
+    } else {
+        return match key_string {
+            "backspace" | "back space" => Some(Key::Backspace),
+            "left" => Some(Key::Left),
+            "right" => Some(Key::Right),
+            "up" => Some(Key::Up),
+            "down" => Some(Key::Down),
+            "home" => Some(Key::Home),
+            "end" => Some(Key::End),
+            "pageup" | "page up" => Some(Key::PageUp),
+            "pagedown" | "page down" => Some(Key::PageDown),
+            "backtab" | "back tab" => Some(Key::BackTab),
+            "delete" => Some(Key::Delete),
+            "insert" => Some(Key::Insert),
+            "esc" | "escape" => Some(Key::Esc),
+            "null" => Some(Key::Null), // What is the null byte?
+            _ => None,
+        }
     }
-    // TODO look for these keys
-    /*
-    /// Backspace.
-    Backspace,
-    /// Left arrow.
-    Left,
-    /// Right arrow.
-    Right,
-    /// Up arrow.
-    Up,
-    /// Down arrow.
-    Down,
-    /// Home key.
-    Home,
-    /// End key.
-    End,
-    /// Page Up key.
-    PageUp,
-    /// Page Down key.
-    PageDown,
-    /// Backward Tab key.
-    BackTab,
-    /// Delete key.
-    Delete,
-    /// Insert key.
-    Insert,
-    /// Function keys.
-    ///
-    /// Only function keys 1 through 12 are supported.
-    F(u8),
-    /// Normal character.
-    Char(char),
-    /// Alt modified character.
-    Alt(char),
-    /// Ctrl modified character.
-    ///
-    /// Note that certain keys may not be modifiable with `ctrl`, due to limitations of terminals.
-    Ctrl(char),
-    /// Null byte.
-    Null,
-    /// Esc key.
-    Esc,
-        */
     None
 }
