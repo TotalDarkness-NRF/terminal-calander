@@ -124,7 +124,7 @@ impl Tui {
         match result {
             Some(value) => value,
             None => {
-                if let Direction::Left = direction {
+                if matches!(direction, Direction::Left) || matches!(direction, Direction::Down){
                     chrono::MIN_DATE.with_timezone(&Local)
                 } else {
                     chrono::MAX_DATE.with_timezone(&Local)
