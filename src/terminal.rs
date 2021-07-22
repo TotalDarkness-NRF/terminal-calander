@@ -105,22 +105,22 @@ impl Formatter {
     }
 
     pub fn bg_color(mut self, color: &AnsiValue) -> Self {
-        self.string += color::Bg(*color).to_string().as_str();
+        self.string += &color::Bg(*color).to_string();
         self
     }
 
     pub fn fg_color(mut self, color: &AnsiValue) -> Self {
-        self.string += color::Fg(*color).to_string().as_str();
+        self.string += &color::Fg(*color).to_string();
         self
     }
 
     pub fn go_to(mut self, position: Position) -> Self {
-        self.string += cursor::Goto(position.get_x(), position.get_y()).to_string().as_str();
+        self.string += &cursor::Goto(position.get_x(), position.get_y()).to_string();
         self
     }
 
     pub fn text(mut self, text: String) -> Self {
-        self.string += text.as_str();
+        self.string += &text;
         self
     }
 
