@@ -34,7 +34,6 @@ impl Tui {
         let mut format = self.draw_background();
         format += &self.draw_calendars();
         self.terminal.write_format(format);
-        
     }
 
     fn tui_loop(&mut self) {
@@ -105,7 +104,7 @@ impl Tui {
                 self.move_calendar(index, Direction::Down)
             } else { return };
             self.terminal.write_format(format);
-         }
+        }
     }
 
     fn time_travel(&self, direction: Direction) -> Date<Local> {
@@ -146,17 +145,15 @@ impl Tui {
             let mouse_pos = Position::new(x, y);
             let mut format = Formatter::new();
             for (calendar_index, calendar) in self.calendars.iter_mut().enumerate() {
-                if calendar.is_hovered(mouse_pos) {
-                    for (i, button) in calendar.buttons.iter_mut().enumerate() {
-                        if button.is_hovered(mouse_pos) {
-                            if *index != calendar_index {
-                                calendar_change = true;
-                                future_index = calendar_index;
-                            }
-                            format += &calendar.select_button(&mut self.config, i);
-                            break;
-                        }
+                if !calendar.is_hovered(mouse_pos) { continue }
+                for (i, button) in calendar.buttons.iter_mut().enumerate() {
+                    if !button.is_hovered(mouse_pos) { continue }
+                    if *index != calendar_index {
+                        calendar_change = true;
+                        future_index = calendar_index;
                     }
+                    format += &calendar.select_button(&mut self.config, i);
+                    break;
                 }
             }
 
@@ -263,13 +260,12 @@ impl Tui {
     fn draw_calendars(&mut self) -> Formatter {
         let threads = self.config.max_threads;
         let threads: usize = if self.calendars.len() > threads { threads } else { self.calendars.len() };
-        let mut handles = Vec::with_capacity(threads);
-        let formatter = Arc::new(Mutex::new(Formatter::new()));
+        let (tx, rx) = channel();
         let mutex = Arc::new(Mutex::new(self.calendars.clone()));
-        for _ in 0..threads {
-            let formatter = formatter.clone();
+        let handles: Vec<_> = (0..threads).map(|_| {
             let mutex = Arc::clone(&mutex);
-            let handle = thread::spawn(move || {
+            let tx = tx.clone();
+            thread::spawn(move || {
                 loop {
                     let mut calendar: Calendar;
                     {// Introduce scope to remove lock fast
@@ -278,18 +274,23 @@ impl Tui {
                             None => break,
                         };
                     }
-                    { *formatter.lock().unwrap() += &calendar.draw_format(); }
+                    tx.send(calendar.draw_format()).unwrap();
                 }
-            });
-            handles.push(handle);
-        }
+            })
+        }).collect();
+
+        // Wait for all threads to finish
         for handle in handles {
             handle.join().unwrap();
         }
 
-        if let Ok(lock) = Arc::try_unwrap(formatter) {
-            lock.into_inner().unwrap()
-        } else { Formatter::new() }
+        // Collect thread messages
+        let mut format = Formatter::new();
+        for _ in 0..self.calendars.len() {
+            format += &rx.recv().unwrap();
+        }
+        
+        format
     }
 
     fn move_calendar(&mut self, index: &mut usize, direction: Direction) -> Formatter {
