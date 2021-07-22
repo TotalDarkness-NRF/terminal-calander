@@ -212,49 +212,46 @@ impl Tui {
         if rows > threads || columns > threads { threads } 
         else if rows >= columns { rows }
         else { columns };
-        let mut handles = Vec::with_capacity(threads);
         // Put all this here because they all relate and need to be in sync
         let mutex = Arc::new(Mutex::new((date, Position::new_origin(), 0)));
-        let vec = vec![Calendar::dummy(&self.config); rows*columns];
-        let mutex_vec = Arc::new(Mutex::new(vec));
-        for _ in 0..threads {
+        let max = rows * columns;
+        let mut vec = vec![Calendar::dummy(&self.config); max]; //fill up space
+        let (tx, rx) = channel();
+        let handles: Vec<_> = (0..threads).map(|_| {
             let config = self.config; // Auto cloned config
             let mutex = mutex.clone();
-            let mutex_vec = mutex_vec.clone();
-            let handle = thread::spawn(move || {
-                Tui::thread_create_calendar(mutex, mutex_vec, config);
-            });
-            handles.push(handle);
-        }
+            let tx = tx.clone();
+            thread::spawn(move || {
+                loop {
+                    let date;
+                    let position;
+                    let index;
+                    { // Put in a new scope to force the lock drop and unlock for other threads
+                        let mut lock  = mutex.lock().unwrap();
+                        if lock.2 >= max { break; }
+                        date = lock.0.clone();
+                        position = lock.1.clone();
+                        index = lock.2.clone();
+                        lock.0 = (date + chrono::Duration::days(32)).with_day(1).unwrap();
+                        lock.1.set_x(position.get_x() + 24);
+                        lock.2 += 1;
+                        if lock.2 % Tui::get_columns() == 0 { lock.1.set(1, position.get_y() + 14); }
+                    }
+                    tx.send((Calendar::new(date, position, &config), index)).unwrap();
+                }
+            })
+        }).collect();
 
         for handle in handles {
             handle.join().unwrap();
         }
 
-        if let Ok(lock) = Arc::try_unwrap(mutex_vec) {
-            self.calendars = lock.into_inner().unwrap();
+        for _ in 0..max {
+            let (calendar, index) = rx.recv().unwrap();
+            *vec.get_mut(index).unwrap() = calendar;
         }
-    }
 
-    fn thread_create_calendar(mutex: Arc<Mutex<(Date<Local>, Position, usize)>>, mutex_vec: Arc<Mutex<Vec<Calendar>>>, config: Config) {
-        loop {
-            let date;
-            let position;
-            let index;
-            { // Put in a new scope to force the lock drop and unlock for other threads
-                let mut lock  = mutex.lock().unwrap();
-                if lock.2 >= mutex_vec.lock().unwrap().len() { break; } // Quick check then drop vec lock
-                date = lock.0.clone();
-                position = lock.1.clone();
-                index = lock.2.clone();
-                lock.0 = (date + chrono::Duration::days(32)).with_day(1).unwrap();
-                lock.1.set_x(position.get_x() + 24);
-                if (index + 1) % Tui::get_columns() == 0 { lock.1.set(1, position.get_y() + 14); }
-                lock.2 += 1;
-            }
-            let calendar = Calendar::new(date, position, &config);
-            { *mutex_vec.lock().unwrap().get_mut(index).unwrap() = calendar; }
-        }
+        self.calendars = vec;
     }
 
     fn draw_calendars(&mut self) -> Formatter {
