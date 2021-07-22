@@ -1,4 +1,4 @@
-use std::{fs::File, io::Write};
+use std::{fs::File, io::Write, ops::{Add, AddAssign}};
 
 use termion::{clear, color::{self, AnsiValue}, cursor, input::{Events, MouseTerminal, TermRead}, raw::{IntoRawMode, RawTerminal}, screen, style};
 
@@ -56,7 +56,7 @@ impl Terminal {
             let mut cursor = Position::new_origin();
             for y in start.get_y()..=end.get_y() {
                 cursor.set(start.get_x(), y);
-                format = format
+                format += &Formatter::new()
                 .go_to(cursor)
                 .text(format!("{:width$}", " ", width = (end.get_x() - start.get_x() + 1).into()));
             }
@@ -115,6 +115,20 @@ impl Terminal {
 
 pub struct Formatter {
     string: String,
+}
+
+impl Add<&Formatter> for Formatter {
+    type Output = Formatter;
+    fn add(mut self, other: &Formatter) -> Self {
+        self.string += &other.string;
+        self
+    }
+}
+
+impl AddAssign<&Formatter> for Formatter {
+    fn add_assign(&mut self, other: &Formatter) {
+        self.string += &other.string;
+    }
 }
 
 impl Formatter {
