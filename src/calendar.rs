@@ -36,14 +36,14 @@ impl Calendar {
         calendar
     }
 
-    pub fn dummy(config: &Config) -> Self {
+    pub fn dummy() -> Self {
         Calendar {
             start_date: Local::today(),
             start: Position::new_origin(),
             end: Position::new_origin(),
             buttons: Vec::new(),
             cursor: 0,
-            bg_color: config.calendar_bg_color,
+            bg_color: AnsiValue(0),
         }
     }
 

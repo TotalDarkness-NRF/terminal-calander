@@ -215,7 +215,7 @@ impl Tui {
         // Put all this here because they all relate and need to be in sync
         let mutex = Arc::new(Mutex::new((date, Position::new_origin(), 0)));
         let max = rows * columns;
-        let mut vec = vec![Calendar::dummy(&self.config); max]; //fill up space
+        let mut vec = vec![Calendar::dummy(); max]; //fill up space
         let (tx, rx) = channel();
         let handles: Vec<_> = (0..threads).map(|_| {
             let config = self.config; // Auto cloned config
@@ -404,7 +404,6 @@ impl Button {
     }
 }
 
-#[derive(Clone)]
 pub struct TextBox {
     text: String,
     pub position: Position,
