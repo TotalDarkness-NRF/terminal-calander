@@ -58,7 +58,6 @@ impl Config {
         let file = env::current_exe().unwrap().parent().unwrap().join("config.txt"); 
         // TODO this path is dumb. Instead store it either in .cofing, in current_dir() or specified by user
         if !file.exists() { return config };
-        //let file;
         let file = match File::open(file) {
             Ok(file) => file,
             Err(_) => return config,
@@ -207,6 +206,8 @@ fn parse_boolean(color_string: &str) -> Option<bool> {
 }
 
 fn parse_color(mut color_string: &str) -> Option<AnsiValue> {
+    if color_string.contains("gray") || color_string.contains("grey") { return parse_gray_shade(color_string); }
+    else if color_string.contains("rgb") { return  parse_rgb_color(color_string); }
     if color_string.starts_with("high-intensity") {
         color_string = color_string.split_at("high-intensity".len()).1;
     }
@@ -228,6 +229,43 @@ fn parse_color(mut color_string: &str) -> Option<AnsiValue> {
         "lightcyan" | "14" => Some(AnsiValue(14)),
         "lightwhite" | "15" => Some(AnsiValue(15)),
         _ => None,
+    }
+}
+
+fn parse_rgb_color(color_string: &str) -> Option<AnsiValue> {
+    let color_string = color_string
+        .replace("rgb", "")
+        .replace("(", "")
+        .replace(")", "");
+    let args: Vec<&str> = color_string.split(",").collect();
+    if args.len() != 3 { return  None; }
+    let mut rgb: [u8; 3] = [0; 3];
+    for (index, arg) in args.iter().enumerate() {
+        let value = 
+        match arg.parse::<u8>() {
+            Ok(u8) => u8,
+            Err(_) => return None,
+        };
+        if value > 5 { return None; }
+        rgb[index] = value;
+    }
+    Some(AnsiValue::rgb(rgb[0], rgb[1], rgb[2]))
+}
+
+fn parse_gray_shade(color_string: &str) -> Option<AnsiValue> {
+    let color_string = color_string
+        .replace("gray", "")
+        .replace("(", "")
+        .replace(")", "");
+    
+    match color_string.parse::<u8>() {
+        Ok(u8) => {
+            if u8 > 24 { return None; }
+            if u8 == 0 { return Some(AnsiValue(0)); } // Return black
+            let u8 = u8 - 1;
+            Some(AnsiValue::grayscale(u8))
+        },
+        Err(_) => None,
     }
 }
 
