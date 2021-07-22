@@ -3,12 +3,13 @@ use termion::color::AnsiValue;
 
 use crate::{config::Config, position::{Direction, Position}, terminal::Formatter, tui::{Button, ButtonType, TextBox, Widget}};
 
+static mut WEEKDAYS: Option<TextBox> = None; // Use this to hold weekday textbox
+
 #[derive(Clone)]
 pub struct Calendar {
     start_date: Date<Local>,
     start: Position,
     end: Position,
-    weekdays: TextBox, // TODO no point in saving this in each calendar
     pub buttons: Vec<Button>,
     pub cursor: usize,
     bg_color: AnsiValue
@@ -20,11 +21,17 @@ impl Calendar {
             start_date,
             start,
             end: Position::new(start.get_x() + 21, start.get_y() + 12),
-            weekdays: TextBox::new(get_weekdays(start_date), Position::new(start.get_x(), start.get_y() + 1), config.weekday_bg_color),
             buttons: Vec::new(),
             cursor: 0,
             bg_color: config.calendar_bg_color,
         };
+        unsafe {
+            if let None = WEEKDAYS {
+                let weekdays = TextBox::new(get_weekdays(start_date), Position::new_center(), config.weekday_bg_color);
+                WEEKDAYS = Some(weekdays);
+            }
+        }
+        
         calendar.setup(config);
         calendar
     }
@@ -34,7 +41,6 @@ impl Calendar {
             start_date: Local::today(),
             start: Position::new_origin(),
             end: Position::new_origin(),
-            weekdays: TextBox::new("".to_string(), Position::new_origin(), config.weekday_bg_color),
             buttons: Vec::new(),
             cursor: 0,
             bg_color: config.calendar_bg_color,
@@ -147,7 +153,15 @@ impl Widget for Calendar {
         for button in self.buttons.iter_mut() {
             format += &button.draw_format();
         }
-        format + &self.weekdays.draw_format()
+        unsafe {
+            match &mut WEEKDAYS {
+                Some(textbox) => {
+                    textbox.position.set(self.start.get_x(), self.start.get_y() + 1);
+                    format + &textbox.draw_format()
+                },
+                None => format,
+            }
+        }
     }
 
     fn action(&mut self) {

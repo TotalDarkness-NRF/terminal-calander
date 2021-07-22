@@ -407,7 +407,7 @@ impl Button {
 #[derive(Clone)]
 pub struct TextBox {
     text: String,
-    position: Position,
+    pub position: Position,
     color: AnsiValue,
 }
 
