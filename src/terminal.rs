@@ -1,6 +1,6 @@
 use std::{fs::File, io::Write};
 
-use termion::{clear, color::{self, Color}, cursor, input::{Events, MouseTerminal, TermRead}, raw::{IntoRawMode, RawTerminal}, screen, style};
+use termion::{clear, color::{self, AnsiValue}, cursor, input::{Events, MouseTerminal, TermRead}, raw::{IntoRawMode, RawTerminal}, screen, style};
 
 use crate::position::Position;
 
@@ -46,22 +46,21 @@ impl Terminal {
         write!(self.terminal, "{}", message).unwrap();
     }
 
-    pub fn write_background(&mut self, pos: Position, message: String, color: &dyn Color) {
-        self.restore_cursor_write(pos, format!("{}{}", color::Bg(color), message));
+    pub fn write_background(&mut self, pos: Position, message: String, color: &AnsiValue) {
+        self.restore_cursor_write(pos, format!("{}{}", color::Bg(*color), message));
     }
 
-    pub fn draw_large_box(&mut self, start: Position, end: Position, color: &dyn Color) {
+    pub fn draw_large_box(&mut self, start: Position, end: Position, color: &AnsiValue) {
         if start.get_x() <= end.get_x() && start.get_y() <= end.get_y() {
+            let mut format = Formatter::new().bg_color(color);
             let mut cursor = Position::new_origin();
             for y in start.get_y()..=end.get_y() {
                 cursor.set(start.get_x(), y);
-                let format = 
-                Formatter::new()
+                format = format
                 .go_to(cursor)
-                .bg_color(color)
                 .text(format!("{:width$}", " ", width = (end.get_x() - start.get_x() + 1).into()));
-                self.write_format(format);
             }
+            self.write_format(format);
         }
     }
 
@@ -110,11 +109,10 @@ impl Terminal {
     }
 
     pub fn write_format(&mut self, format: Formatter) {
-        self.write(format.get_string_format());
+        self.write(format.string);
     }
 }
 
-#[derive(Clone)]
 pub struct Formatter {
     string: String,
 }
@@ -124,27 +122,23 @@ impl Formatter {
         Formatter { string: String::new() }
     }
 
-    pub fn bg_color(mut self, color: &dyn Color) -> Self {
-        self.string.push_str(color::Bg(color).to_string().as_str());
+    pub fn bg_color(mut self, color: &AnsiValue) -> Self {
+        self.string += color::Bg(*color).to_string().as_str();
         self
     }
 
-    pub fn fg_color(mut self, color: &dyn Color) -> Self {
-        self.string.push_str(color::Fg(color).to_string().as_str());
-        self
-    }
-
-    pub fn text(mut self, text: String) -> Self {
-        self.string.push_str(text.as_str());
+    pub fn fg_color(mut self, color: &AnsiValue) -> Self {
+        self.string += color::Fg(*color).to_string().as_str();
         self
     }
 
     pub fn go_to(mut self, position: Position) -> Self {
-        self.string.push_str(cursor::Goto(position.get_x(), position.get_y()).to_string().as_str());
+        self.string += cursor::Goto(position.get_x(), position.get_y()).to_string().as_str();
         self
     }
 
-    pub fn get_string_format(&self) -> String {
-        self.string.clone()
+    pub fn text(mut self, text: String) -> Self {
+        self.string += text.as_str();
+        self
     }
 }
