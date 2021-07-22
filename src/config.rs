@@ -64,12 +64,13 @@ impl Config {
             Err(_) => return config,
         };
         let reader = BufReader::new(file);
+        let mut handles = Vec::with_capacity(10);
         let mutex = Arc::new(Mutex::new(reader.lines()));
         let config_mutex = Arc::new(Mutex::new(config));
         for _ in 0..10 { // TODO can we somehow get max threads first?
             let mutex = mutex.clone();
             let config_mutex = config_mutex.clone();
-            thread::spawn( move || {
+            let handle = thread::spawn( move || {
                 loop {
                     let line;
                     { 
@@ -98,7 +99,12 @@ impl Config {
                         { continue }
                     }
                 }
-            }).join().unwrap();
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
         }
 
         if let Ok(lock) = Arc::try_unwrap(config_mutex) {
@@ -153,11 +159,7 @@ impl Config {
         let config = self;
         if let Ok(value) = value.parse::<usize>() {
             match config_var {
-                "max_threads" => {
-                    if value != 0 {
-                        config.max_threads = value
-                    }
-                },
+                "max_threads" => if value != 0 { config.max_threads = value },
                 _ => return false,
             }
             return true;

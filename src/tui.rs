@@ -172,32 +172,6 @@ impl Tui {
         );
     }
 
-    pub fn create_calendars(&mut self, date: Date<Local>) {
-        let columns = Tui::get_columns();
-        let rows = Tui::get_rows();
-        let threads = self.config.max_threads;
-        let threads = 
-        if rows > threads || columns > threads { threads } 
-        else if rows >= columns { rows }
-        else { columns };
-        // Put all this here because they all relate and need to be in sync
-        let mutex = Arc::new(Mutex::new((date, Position::new_origin(), 0)));
-        let vec = vec![Calendar::dummy(&self.config); rows*columns];
-        let mutex_vec = Arc::new(Mutex::new(vec));
-        for _ in 0..threads {
-            let config = self.config; // Auto cloned config
-            let mutex = mutex.clone();
-            let mutex_vec = mutex_vec.clone();
-            thread::spawn(move || {
-                Tui::thread_create_calendar(mutex, mutex_vec, config);
-            }).join().unwrap();
-        }
-
-        if let Ok(lock) = Arc::try_unwrap(mutex_vec) {
-            self.calendars = lock.into_inner().unwrap();
-        }
-    }
-
     fn get_columns() -> usize {
         let mut position = Position::new_origin();
         let mut count:  usize = 0;
@@ -228,6 +202,38 @@ impl Tui {
         count
     }
 
+    pub fn create_calendars(&mut self, date: Date<Local>) {
+        let columns = Tui::get_columns();
+        let rows = Tui::get_rows();
+        let threads = self.config.max_threads;
+        let threads = 
+        if rows > threads || columns > threads { threads } 
+        else if rows >= columns { rows }
+        else { columns };
+        let mut handles = Vec::with_capacity(threads);
+        // Put all this here because they all relate and need to be in sync
+        let mutex = Arc::new(Mutex::new((date, Position::new_origin(), 0)));
+        let vec = vec![Calendar::dummy(&self.config); rows*columns];
+        let mutex_vec = Arc::new(Mutex::new(vec));
+        for _ in 0..threads {
+            let config = self.config; // Auto cloned config
+            let mutex = mutex.clone();
+            let mutex_vec = mutex_vec.clone();
+            let handle = thread::spawn(move || {
+                Tui::thread_create_calendar(mutex, mutex_vec, config);
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        if let Ok(lock) = Arc::try_unwrap(mutex_vec) {
+            self.calendars = lock.into_inner().unwrap();
+        }
+    }
+
     fn thread_create_calendar(mutex: Arc<Mutex<(Date<Local>, Position, usize)>>, mutex_vec: Arc<Mutex<Vec<Calendar>>>, config: Config) {
         loop {
             let date;
@@ -250,10 +256,10 @@ impl Tui {
     }
 
     fn draw_calendars(&mut self) {
-        let mut handles = Vec::new();
-        let mutex = Arc::new(Mutex::new(self.calendars.clone()));
         let threads = self.config.max_threads;
         let threads: usize = if self.calendars.len() > threads { threads } else { self.calendars.len() };
+        let mut handles = Vec::with_capacity(threads);
+        let mutex = Arc::new(Mutex::new(self.calendars.clone()));
         for _ in 0..threads {
             let mutex = Arc::clone(&mutex);
             let handle = thread::spawn(move || {
