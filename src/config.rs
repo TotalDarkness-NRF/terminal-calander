@@ -48,6 +48,7 @@ pub struct Config {
     pub go_forward_calendar: Key,
     pub change_calendar_reset_cursor: bool,
     pub unselect_change_calendar_cursor: bool,
+    pub max_threads: usize,
     // TODO have buttons to move calander right left etc
 }
 
@@ -65,7 +66,7 @@ impl Config {
         let reader = BufReader::new(file);
         let mutex = Arc::new(Mutex::new(reader.lines()));
         let config_mutex = Arc::new(Mutex::new(config));
-        for _ in 0..20 {
+        for _ in 0..10 { // TODO can we somehow get max threads first?
             let mutex = mutex.clone();
             let config_mutex = config_mutex.clone();
             thread::spawn( move || {
@@ -91,6 +92,7 @@ impl Config {
                     {
                         let mut config = config_mutex.lock().unwrap();
                         if config.match_boolean(config_var, value)
+                        || config.match_number(config_var, value)
                         || config.match_colors(config_var, value)
                         || config.match_key(config_var, value) 
                         { continue }
@@ -129,7 +131,8 @@ impl Config {
             go_back_calendar: Key::Down,
             go_forward_calendar: Key::Up,
             change_calendar_reset_cursor: true,
-            unselect_change_calendar_cursor: true, 
+            unselect_change_calendar_cursor: true,
+            max_threads: 1,
         }
     }
 
@@ -139,6 +142,22 @@ impl Config {
             match config_var {
                 "change_calendar_reset_cursor" => config.change_calendar_reset_cursor = value,
                 "unselect_change_calendar_cursor" => config.unselect_change_calendar_cursor = value,
+                _ => return false,
+            }
+            return true;
+        }
+        false
+    }
+
+    fn match_number(&mut self, config_var: &str, value: &str) -> bool {
+        let config = self;
+        if let Ok(value) = value.parse::<usize>() {
+            match config_var {
+                "max_threads" => {
+                    if value != 0 {
+                        config.max_threads = value
+                    }
+                },
                 _ => return false,
             }
             return true;

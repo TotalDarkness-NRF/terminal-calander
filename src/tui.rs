@@ -175,8 +175,9 @@ impl Tui {
     pub fn create_calendars(&mut self, date: Date<Local>) {
         let columns = Tui::get_columns();
         let rows = Tui::get_rows();
+        let threads = self.config.max_threads;
         let threads = 
-        if rows > 20 || columns > 20 { 20 } 
+        if rows > threads || columns > threads { threads } 
         else if rows >= columns { rows }
         else { columns };
         // Put all this here because they all relate and need to be in sync
@@ -251,7 +252,8 @@ impl Tui {
     fn draw_calendars(&mut self) {
         let mut handles = Vec::new();
         let mutex = Arc::new(Mutex::new(self.calendars.clone()));
-        let threads: usize = if self.calendars.len() > 20 { 20 } else { self.calendars.len() };
+        let threads = self.config.max_threads;
+        let threads: usize = if self.calendars.len() > threads { threads } else { self.calendars.len() };
         for _ in 0..threads {
             let mutex = Arc::clone(&mutex);
             let handle = thread::spawn(move || {
