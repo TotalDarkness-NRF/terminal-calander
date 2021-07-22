@@ -30,9 +30,10 @@ impl Tui {
     }
 
     fn init(&mut self, date: Date<Local>) {
-        self.draw_background();
         self.create_calendars(date);
-        self.draw_calendars();
+        let mut format = self.draw_background();
+        format += &self.draw_calendars();
+        self.terminal.write_format(format);
     }
 
     fn tui_loop(&mut self) {
@@ -63,35 +64,14 @@ impl Tui {
                 Event::Key(key) => self.handle_key(key, index),
                 Event::Mouse(mouse) => self.handle_mouse(mouse, index),
                 Event::Unsupported(_) => (),
-            }
-            self.terminal.flush();
+            };
         }
     }
 
     fn handle_key(&mut self, key: Key, index: &mut usize) {
         let config = &self.config;
         if key == config.quit {
-            self.quit = true;
-         } else if key == config.left {
-             self.calendars.get_mut(*index).unwrap()
-             .move_cursor(&config, &mut self.terminal, Direction::Left);
-         } else if key == config.right {
-             self.calendars.get_mut(*index).unwrap()
-             .move_cursor(&config, &mut self.terminal, Direction::Right);
-         } else if key == config.up {
-             self.calendars.get_mut(*index).unwrap()
-             .move_cursor(&config, &mut self.terminal, Direction::Up);
-         } else if key == config.down {
-             self.calendars.get_mut(*index).unwrap()
-             .move_cursor(&config, &mut self.terminal, Direction::Down);
-         } else if key == config.calendar_left {
-             self.move_calendar(index, Direction::Left);
-         } else if key == config.calendar_right {
-             self.move_calendar(index, Direction::Right);
-         } else if key == config.calendar_up {
-             self.move_calendar(index, Direction::Up);
-         } else if key == config.calendar_down {
-             self.move_calendar(index, Direction::Down);            
+            self.quit = true;          
          } else if key == config.go_back_time {
              self.reset(self.time_travel(Direction::Left));
          } else if key == config.go_forward_time {
@@ -100,7 +80,31 @@ impl Tui {
              self.reset(self.time_travel(Direction::Down));
          } else if key == config.go_forward_calendar {
              self.reset(self.time_travel(Direction::Up));
-         }
+         } else {
+            let format =
+            if key == config.left {
+                self.calendars.get_mut(*index).unwrap()
+                .move_cursor(&config, Direction::Left)
+            } else if key == config.right {
+                self.calendars.get_mut(*index).unwrap()
+                .move_cursor(&config, Direction::Right)
+            } else if key == config.up {
+                self.calendars.get_mut(*index).unwrap()
+                .move_cursor(&config, Direction::Up)
+            } else if key == config.down {
+                self.calendars.get_mut(*index).unwrap()
+                .move_cursor(&config, Direction::Down)
+            } else if key == config.calendar_left {
+                self.move_calendar(index, Direction::Left)
+            } else if key == config.calendar_right {
+                self.move_calendar(index, Direction::Right)
+            } else if key == config.calendar_up {
+                self.move_calendar(index, Direction::Up)
+            } else if key == config.calendar_down {
+                self.move_calendar(index, Direction::Down)
+            } else { return };
+            self.terminal.write_format(format);
+        }
     }
 
     fn time_travel(&self, direction: Direction) -> Date<Local> {
@@ -139,37 +143,35 @@ impl Tui {
             let mut calendar_change = false;
             let mut future_index = self.calendars.len() + 1;
             let mouse_pos = Position::new(x, y);
+            let mut format = Formatter::new();
             for (calendar_index, calendar) in self.calendars.iter_mut().enumerate() {
-                if calendar.is_hovered(mouse_pos) {
-                    for (i, button) in calendar.buttons.iter_mut().enumerate() {
-                        if button.is_hovered(mouse_pos) {
-                            if *index != calendar_index {
-                                calendar_change = true;
-                                future_index = calendar_index;
-                            }
-                            calendar.select_button(&mut self.config, &mut self.terminal, i);
-                            break;
-                        }
+                if !calendar.is_hovered(mouse_pos) { continue }
+                for (i, button) in calendar.buttons.iter_mut().enumerate() {
+                    if !button.is_hovered(mouse_pos) { continue }
+                    if *index != calendar_index {
+                        calendar_change = true;
+                        future_index = calendar_index;
                     }
+                    format += &calendar.select_button(&mut self.config, i);
+                    break;
                 }
             }
 
-            if !calendar_change { return; }
-            let last_calendar = self.calendars.get_mut(*index).unwrap();
-            if self.config.unselect_change_calendar_cursor || self.config.change_calendar_reset_cursor {
-                last_calendar.unselect_button(&mut self.config, &mut self.terminal);
+            if calendar_change { 
+                let last_calendar = self.calendars.get_mut(*index).unwrap();
+                if self.config.unselect_change_calendar_cursor || self.config.change_calendar_reset_cursor {
+                    format += &last_calendar.unselect_button(&mut self.config);
+                }
+                if self.config.change_calendar_reset_cursor { last_calendar.cursor = 0; }  
+                *index = future_index;  
             }
-            if self.config.change_calendar_reset_cursor { last_calendar.cursor = 0; }  
-            *index = future_index;  
+            self.terminal.write_format(format);
         }
     }
 
-    fn draw_background(&mut self) {
-        self.terminal.draw_large_box(
-            Position::new_origin(),
-            Position::new(self.bounds.get_x(), self.bounds.get_y()),
-            &self.config.bg_color,
-        );
+    fn draw_background(&mut self) -> Formatter {
+        Formatter::new().
+        create_box(&Position::new_origin(), &Position::new(self.bounds.get_x(), self.bounds.get_y()), &self.config.bg_color)
     }
 
     fn get_columns() -> usize {
@@ -210,59 +212,57 @@ impl Tui {
         if rows > threads || columns > threads { threads } 
         else if rows >= columns { rows }
         else { columns };
-        let mut handles = Vec::with_capacity(threads);
         // Put all this here because they all relate and need to be in sync
         let mutex = Arc::new(Mutex::new((date, Position::new_origin(), 0)));
-        let vec = vec![Calendar::dummy(&self.config); rows*columns];
-        let mutex_vec = Arc::new(Mutex::new(vec));
-        for _ in 0..threads {
+        let max = rows * columns;
+        let mut vec = vec![Calendar::dummy(&self.config); max]; //fill up space
+        let (tx, rx) = channel();
+        let handles: Vec<_> = (0..threads).map(|_| {
             let config = self.config; // Auto cloned config
             let mutex = mutex.clone();
-            let mutex_vec = mutex_vec.clone();
-            let handle = thread::spawn(move || {
-                Tui::thread_create_calendar(mutex, mutex_vec, config);
-            });
-            handles.push(handle);
-        }
+            let tx = tx.clone();
+            thread::spawn(move || {
+                loop {
+                    let date;
+                    let position;
+                    let index;
+                    { // Put in a new scope to force the lock drop and unlock for other threads
+                        let mut lock  = mutex.lock().unwrap();
+                        if lock.2 >= max { break; }
+                        date = lock.0.clone();
+                        position = lock.1.clone();
+                        index = lock.2.clone();
+                        lock.0 = (date + chrono::Duration::days(32)).with_day(1).unwrap();
+                        lock.1.set_x(position.get_x() + 24);
+                        lock.2 += 1;
+                        if lock.2 % Tui::get_columns() == 0 { lock.1.set(1, position.get_y() + 14); }
+                    }
+                    tx.send((Calendar::new(date, position, &config), index)).unwrap();
+                }
+            })
+        }).collect();
 
         for handle in handles {
             handle.join().unwrap();
         }
 
-        if let Ok(lock) = Arc::try_unwrap(mutex_vec) {
-            self.calendars = lock.into_inner().unwrap();
+        for _ in 0..max {
+            let (calendar, index) = rx.recv().unwrap();
+            *vec.get_mut(index).unwrap() = calendar;
         }
+
+        self.calendars = vec;
     }
 
-    fn thread_create_calendar(mutex: Arc<Mutex<(Date<Local>, Position, usize)>>, mutex_vec: Arc<Mutex<Vec<Calendar>>>, config: Config) {
-        loop {
-            let date;
-            let position;
-            let index;
-            { // Put in a new scope to force the lock drop and unlock for other threads
-                let mut lock  = mutex.lock().unwrap();
-                if lock.2 >= mutex_vec.lock().unwrap().len() { break; } // Quick check then drop vec lock
-                date = lock.0.clone();
-                position = lock.1.clone();
-                index = lock.2.clone();
-                lock.0 = (date + chrono::Duration::days(32)).with_day(1).unwrap();
-                lock.1.set_x(position.get_x() + 24);
-                if (index + 1) % Tui::get_columns() == 0 { lock.1.set(1, position.get_y() + 14); }
-                lock.2 += 1;
-            }
-            let calendar = Calendar::new(date, position, &config);
-            { *mutex_vec.lock().unwrap().get_mut(index).unwrap() = calendar; }
-        }
-    }
-
-    fn draw_calendars(&mut self) {
+    fn draw_calendars(&mut self) -> Formatter {
         let threads = self.config.max_threads;
         let threads: usize = if self.calendars.len() > threads { threads } else { self.calendars.len() };
-        let mut handles = Vec::with_capacity(threads);
+        let (tx, rx) = channel();
         let mutex = Arc::new(Mutex::new(self.calendars.clone()));
-        for _ in 0..threads {
+        let handles: Vec<_> = (0..threads).map(|_| {
             let mutex = Arc::clone(&mutex);
-            let handle = thread::spawn(move || {
+            let tx = tx.clone();
+            thread::spawn(move || {
                 loop {
                     let mut calendar: Calendar;
                     {// Introduce scope to remove lock fast
@@ -271,43 +271,53 @@ impl Tui {
                             None => break,
                         };
                     }
-                    calendar.draw(&mut Terminal::new());
+                    tx.send(calendar.draw_format()).unwrap();
                 }
-            });
-            handles.push(handle);
-        }
+            })
+        }).collect();
+
+        // Wait for all threads to finish
         for handle in handles {
             handle.join().unwrap();
         }
+
+        // Collect thread messages
+        let mut format = Formatter::new();
+        for _ in 0..self.calendars.len() {
+            format += &rx.recv().unwrap();
+        }
+        
+        format
     }
 
-    fn move_calendar(&mut self, index: &mut usize, direction: Direction) {
+    fn move_calendar(&mut self, index: &mut usize, direction: Direction) -> Formatter {
         let change;
+        let mut format = Formatter::new();
         match direction {
             Direction::Up | Direction::Down => {
                 let x = Tui::get_columns();
                 if let Direction::Up = direction {
-                    if *index == 0 || *index < x { return; }
-                } else if *index + x >= self.calendars.len() { return; }
+                    if *index == 0 || *index < x { return format; }
+                } else if *index + x >= self.calendars.len() { return format; }
                 change = x;
             },
             _ => {
                 if let Direction::Left = direction {
-                    if *index == 0 { return; }
-                } else if *index + 1 >= self.calendars.len() { return; }
+                    if *index == 0 { return format; }
+                } else if *index + 1 >= self.calendars.len() { return format; }
                 change = 1;
             },
         }
         let calendar = self.calendars.get_mut(*index).unwrap();
         if self.config.unselect_change_calendar_cursor || self.config.change_calendar_reset_cursor {
-             calendar.unselect_button(&mut self.config, &mut self.terminal);
+            format += &calendar.unselect_button(&mut self.config);
         }
         if matches!(direction, Direction::Down) || matches!(direction, Direction::Right) { 
             *index += change; 
         } else { *index -= change; }
         if self.config.change_calendar_reset_cursor { calendar.cursor = 0; }
         let calendar = self.calendars.get_mut(*index).unwrap();
-        calendar.select_button(&mut self.config, &mut self.terminal, calendar.cursor);
+        format + &calendar.select_button(&mut self.config, calendar.cursor)
     }
 
     fn reset(&mut self, date: Date<Local>) {
@@ -324,7 +334,7 @@ pub trait Widget {
         position.get_x() >= self.get_start().get_x() && position.get_y() >= self.get_start().get_y()
         && position.get_x() <= self.get_end().get_x() && position.get_y() <= self.get_end().get_y()
     }
-    fn draw(&mut self, terminal: &mut Terminal);
+    fn draw_format(&mut self) -> Formatter;
     fn action(&mut self);
     fn get_start(&self) -> Position;
     fn get_end(&self) -> Position;
@@ -351,10 +361,10 @@ pub enum ButtonType {
 }
 
 impl Widget for Button {
-    fn draw(&mut self, terminal: &mut Terminal) {
+    fn draw_format(&mut self) -> Formatter {
         match &self.button_data {
-            ButtonType::TextButton(text) => self.draw_text_button(terminal, text.to_string()),
-            ButtonType::CalanderDate(date) => self.draw_calendar_date(terminal, date),
+            ButtonType::TextButton(text) => self.draw_text_button(text),
+            ButtonType::CalanderDate(date) => self.draw_calendar_date(date),
         }
     }
 
@@ -372,32 +382,25 @@ impl Widget for Button {
 }
 
 impl Button {
-    fn draw_text_button(&self, terminal: &mut Terminal, text: String) {
-        let center_x: u16 = (self.end_position.get_x() + self.start_position.get_x()) / 2;
+    fn draw_text_button(&self, text: &String) -> Formatter {
+        let mut center_x: u16 = (self.end_position.get_x() + self.start_position.get_x()) / 2;
         let length: u16 = text.chars().count() as u16 / 2;
-        let center_x: u16 = 
-        if center_x >= length {
-            center_x - length
-        } else {
-            center_x
-        };
+        if center_x >= length { center_x -= length; }
         let center_y: u16 = (self.end_position.get_y() + self.start_position.get_y()) / 2;
-        terminal.draw_large_box(self.start_position, self.end_position, &self.bg_color);
-        let format = Formatter::new()
+        Formatter::new()
+        .create_box(&self.start_position, &self.end_position, &self.bg_color)
         .go_to(Position::new(center_x, center_y))
         .bg_color(&self.bg_color)
         .fg_color(&self.fg_color)
-        .text(text);
-        terminal.write_format(format);
+        .text(text.clone())
     }
 
-    fn draw_calendar_date(&self, terminal: &mut Terminal, date: &Date<Local>) {
-        let format = Formatter::new()
+    fn draw_calendar_date(&self, date: &Date<Local>) -> Formatter {
+        Formatter::new()
         .go_to(self.start_position)
         .bg_color(&self.bg_color)
         .fg_color(&self.fg_color)
-        .text(date.format("%e").to_string());
-        terminal.write_format(format);
+        .text(date.format("%e").to_string())
     }
 }
 
@@ -412,7 +415,7 @@ impl TextBox {
     pub fn new(text: String, position: Position, color: AnsiValue) -> Self{
         TextBox { text, position, color }
     }
-    pub fn draw(&self, terminal: &mut Terminal) {
-        terminal.write_background(self.position, self.text.clone(), &self.color);
+    pub fn draw_format(&self) -> Formatter {
+        Formatter::new().go_to(self.position).bg_color(&self.color).text(self.text.clone())
     }
 }

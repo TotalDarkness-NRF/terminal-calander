@@ -1,7 +1,7 @@
 use chrono::{Date, Datelike, Local, Weekday};
 use termion::color::AnsiValue;
 
-use crate::{config::Config, position::{Direction, Position}, terminal::Terminal, tui::{Button, ButtonType, TextBox, Widget}};
+use crate::{config::Config, position::{Direction, Position}, terminal::Formatter, tui::{Button, ButtonType, TextBox, Widget}};
 
 #[derive(Clone)]
 pub struct Calendar {
@@ -88,7 +88,7 @@ impl Calendar {
         }
     }
 
-    pub fn move_cursor(&mut self, config: &Config, terminal: &mut Terminal, direction: Direction) {
+    pub fn move_cursor(&mut self, config: &Config, direction: Direction) -> Formatter {
         let index_to = match direction {
             Direction::Up => 
                 if self.cursor <= 7 { 0 } else { self.cursor - 7 },
@@ -99,37 +99,41 @@ impl Calendar {
             Direction::Right =>
                 if self.cursor + 1 >= self.buttons.len() { self.buttons.len() - 1 } else { self.cursor + 1 },
         };
-        self.select_button(config, terminal, index_to);
+        self.select_button(config, index_to)
     }
 
-    pub fn select_button(&mut self, config: &Config, terminal: &mut Terminal, index_to: usize) {
-        if index_to >= self.buttons.len() { return; }
-        if self.cursor != index_to { self.unselect_button(config, terminal) };
-        let button = self.buttons.iter_mut().skip(index_to).next();
+    pub fn select_button(&mut self, config: &Config, index_to: usize) -> Formatter {
+        let mut format = Formatter::new();
+        if index_to >= self.buttons.len() { return format; }
+        if self.cursor != index_to { format += &self.unselect_button(config); }
+        let button = self.buttons.get_mut(index_to);
         match button {
             Some(button) => {
                 button.bg_color = match button.button_data {
                     ButtonType::TextButton(_) => config.select_bg_text_button_color,
                     ButtonType::CalanderDate(_) => config.select_bg_date_color,
                 };
-                button.draw(terminal);
+                format += &button.draw_format();
                 self.cursor = index_to;
             }
             None => (),
         }
+        format
     }
 
-    pub fn unselect_button(&mut self, config: &Config, terminal: &mut Terminal) {
+    pub fn unselect_button(&mut self, config: &Config) -> Formatter {
+        let mut format = Formatter::new();
         match self.buttons.get_mut(self.cursor) {
             Some(button) => {
                 button.bg_color = match button.button_data {
                     ButtonType::TextButton(_) => config.text_button_bg_color,
                     ButtonType::CalanderDate(_) => config.date_bg_color,
                 };
-                button.draw(terminal);
+                format += &button.draw_format();
             }
             None => (),
         }
+        format
     }
 
     pub fn get_start_date(&self) -> Date<Local> {
@@ -138,12 +142,12 @@ impl Calendar {
 }
 
 impl Widget for Calendar {
-    fn draw(&mut self, terminal: &mut Terminal) {
-        terminal.draw_large_box(self.start, self.end, &self.bg_color);
+    fn draw_format(&mut self) -> Formatter {
+        let mut format = Formatter::new().create_box(&self.start, &self.end, &self.bg_color);
         for button in self.buttons.iter_mut() {
-            button.draw(terminal);
+            format += &button.draw_format();
         }
-        self.weekdays.draw(terminal);
+        format + &self.weekdays.draw_format()
     }
 
     fn action(&mut self) {
