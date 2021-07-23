@@ -34,6 +34,7 @@ pub struct Config {
     pub select_bg_date_color: AnsiValue,
     pub select_bg_text_button_color: AnsiValue,
     pub quit: Key,
+    pub edit: Key,
     pub up: Key,
     pub left: Key,
     pub down: Key,
@@ -124,6 +125,7 @@ impl Config {
             select_bg_date_color: AnsiValue(5),
             select_bg_text_button_color: AnsiValue(13),
             quit: Key::Char('q'),
+            edit: Key::Char('\n'),
             up: Key::Char('w'),
             left: Key::Char('a'),
             down: Key::Char('s'),
@@ -192,6 +194,7 @@ impl Config {
         if let Some(key) = parse_key(value) {
             match config_var {
                 "quit" => config.quit = key,
+                "edit" => config.edit = key,
                 "up" => config.up = key,
                 "left" => config.left = key,
                 "down" => config.down = key,
