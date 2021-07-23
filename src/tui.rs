@@ -48,7 +48,13 @@ impl Tui {
             for key in Terminal::get_events() {
                 // I use lock to stop this thread when I need to edit
                 // If I let it keep sending it causes lag for editor input
-                tx.lock().unwrap().send(key.unwrap()).unwrap();
+                match tx.try_lock(){
+                    Ok(tx) => tx.send(key.unwrap()).unwrap(),
+                    Err(_) => {
+                        // Wait until lock is ok and do nothing in that time
+                        let _lock = tx.lock().unwrap(); 
+                    }, 
+                }
             }
         });
         let mut calendar_index: usize = 0;
