@@ -46,6 +46,8 @@ impl Tui {
         let tx = self.tx_mut.clone();
         thread::spawn(move || {
             for key in Terminal::get_events() {
+                // I use lock to stop this thread when I need to edit
+                // If I let it keep sending it causes lag for editor input
                 tx.lock().unwrap().send(key.unwrap()).unwrap();
             }
         });
@@ -115,13 +117,14 @@ impl Tui {
         // TODO save to a file and the date
         self.terminal.reset();
         self.terminal.exit();
-        self.terminal = Terminal::new();
+        self.terminal = Terminal::new(); // Drop the raw mode and mouse terminal
+        // I decided to use the lock here to stop the other thread (causes lag to editor input)
         let lock = self.tx_mut.lock().unwrap();
         match edit::edit("") {
             Ok(edit) => edit,
             Err(_) => "".to_string(),
         };
-        drop(lock);
+        drop(lock); // Drop lock and allow use of another self mut refrence
         self.terminal = Terminal::new_raw();
         self.terminal.mouse_terminal();
         self.terminal.begin();
@@ -360,11 +363,6 @@ pub trait Widget {
     fn action(&mut self);
     fn get_start(&self) -> Position;
     fn get_end(&self) -> Position;
-}
-
-pub enum WidgetType {
-    Button(Button),
-    WriteBox(Position, AnsiValue),
 }
 
 #[derive(Clone)]
