@@ -1,4 +1,4 @@
-use std::{sync::{Arc, Mutex, mpsc::{Receiver, channel}}, thread};
+use std::{sync::{Arc, Mutex, mpsc::{Receiver, Sender, channel}}, thread};
 
 use chrono::{Date, Datelike, Local};
 use termion::{color::AnsiValue, event::{Event, Key, MouseButton, MouseEvent}};
@@ -10,16 +10,21 @@ pub struct Tui {
     config: Config,
     terminal: Terminal,
     calendars: Vec<Calendar>,
+    tx_mut: Arc<Mutex<Sender<Event>>>,
+    rx: Receiver<Event>,
     quit: bool,
 }
 
 impl Tui {
     pub fn new() -> Self {
+        let (tx, rx) = channel();
         Tui {
             bounds: Terminal::get_boundaries(),
             config: Config::get_config(),
             terminal: Terminal::new_raw(),
             calendars: Vec::new(),
+            tx_mut: Arc::new(Mutex::new(tx)), 
+            rx,
             quit: false,
         }
     }
@@ -31,35 +36,32 @@ impl Tui {
 
     fn init(&mut self, date: Date<Local>) {
         self.create_calendars(date);
-        let mut format = self.draw_background();
-        format += &self.draw_calendars();
+        let format = self.draw_calendars();
         self.terminal.write_format(format);
     }
 
     fn tui_loop(&mut self) {
         self.init(Local::today().with_day(1).unwrap());
-        let (tx, rx) = channel();
+        self.terminal.mouse_terminal();
+        let tx = self.tx_mut.clone();
         thread::spawn(move || {
             for key in Terminal::get_events() {
-                tx.send(key.unwrap()).unwrap();
+                tx.lock().unwrap().send(key.unwrap()).unwrap();
             }
         });
-        // Below forces the capture of a mouse terminal and makes sure we dont drop it
-        let mouse_terminal_hold = self.terminal.get_mouse_terminal();
         let mut calendar_index: usize = 0;
         while !self.quit {
-            self.handle_event(&mut calendar_index, &rx);
+            self.handle_event(&mut calendar_index);
             if self.bounds != Terminal::get_boundaries() {
                 calendar_index = 0;
                 self.reset(Local::today().with_day(1).unwrap());
             }
         }
         self.terminal.exit();
-        drop(mouse_terminal_hold.unwrap()); // Force mouse terminal to stop
     }
 
-    fn handle_event(&mut self, index: &mut usize, rx: &Receiver<Event>) {
-        if let Ok(event) = rx.try_recv() {
+    fn handle_event(&mut self, index: &mut usize) {
+        if let Ok(event) = self.rx.try_recv() {
             match event {
                 Event::Key(key) => self.handle_key(key, index),
                 Event::Mouse(mouse) => self.handle_mouse(mouse, index),
@@ -71,16 +73,18 @@ impl Tui {
     fn handle_key(&mut self, key: Key, index: &mut usize) {
         let config = &self.config;
         if key == config.quit {
-            self.quit = true;          
-         } else if key == config.go_back_time {
-             self.reset(self.time_travel(Direction::Left));
-         } else if key == config.go_forward_time {
-             self.reset(self.time_travel(Direction::Right));
-         } else if key == config.go_back_calendar {
-             self.reset(self.time_travel(Direction::Down));
-         } else if key == config.go_forward_calendar {
-             self.reset(self.time_travel(Direction::Up));
-         } else {
+            self.quit = true;
+        } else if key == config.edit {
+           self.edit();
+        } else if key == config.go_back_time {
+            self.reset(self.time_travel(Direction::Left));
+        } else if key == config.go_forward_time {
+            self.reset(self.time_travel(Direction::Right));
+        } else if key == config.go_back_calendar {
+            self.reset(self.time_travel(Direction::Down));
+        } else if key == config.go_forward_calendar {
+            self.reset(self.time_travel(Direction::Up));
+        } else {
             let format =
             if key == config.left {
                 self.calendars.get_mut(*index).unwrap()
@@ -105,6 +109,24 @@ impl Tui {
             } else { return };
             self.terminal.write_format(format);
         }
+    }
+
+    fn edit(&mut self) {
+        // TODO save to a file and the date
+        self.terminal.reset();
+        self.terminal.exit();
+        self.terminal = Terminal::new();
+        let lock = self.tx_mut.lock().unwrap();
+        match edit::edit("") {
+            Ok(edit) => edit,
+            Err(_) => "".to_string(),
+        };
+        drop(lock);
+        self.terminal = Terminal::new_raw();
+        self.terminal.mouse_terminal();
+        self.terminal.begin();
+        let draw = self.draw_calendars();
+        self.terminal.write_format(draw);
     }
 
     fn time_travel(&self, direction: Direction) -> Date<Local> {
@@ -287,7 +309,7 @@ impl Tui {
             format += &rx.recv().unwrap();
         }
         
-        format
+        self.draw_background() + &format
     }
 
     fn move_calendar(&mut self, index: &mut usize, direction: Direction) -> Formatter {
