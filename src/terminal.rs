@@ -7,7 +7,7 @@ use crate::position::Position;
 pub struct Terminal {
     terminal: File,
     raw: Option<RawTerminal<File>>,
-    mouse_terminals: u8,
+    mouse_terminal: Option<MouseTerminal<File>>,
 }
 
 impl Terminal {
@@ -22,7 +22,7 @@ impl Terminal {
         Terminal {
             terminal: Terminal::get_terminal(),
             raw: None,
-            mouse_terminals: 0,
+            mouse_terminal: None,
         }
     }
 
@@ -34,11 +34,9 @@ impl Terminal {
         termion::get_tty().unwrap()
     }
 
-    pub fn get_mouse_terminal(&mut self) -> Result<MouseTerminal<File>, ()> {
-        if self.mouse_terminals >= 1 { Err(()) }
-        else {
-            self.mouse_terminals += 1;
-            Ok(MouseTerminal::from(Terminal::get_terminal())) 
+    pub fn mouse_terminal(&mut self) {
+        if let None = self.mouse_terminal {
+            self.mouse_terminal = Some(MouseTerminal::from(Terminal::get_terminal()));
         }
     }
 
