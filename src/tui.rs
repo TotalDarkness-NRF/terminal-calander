@@ -83,7 +83,7 @@ impl Tui {
         if key == config.quit {
             self.quit = true;
         } else if key == config.edit {
-           self.edit();
+           self.edit(index);
         } else if key == config.go_back_time {
             self.reset(self.time_travel(Direction::Left));
         } else if key == config.go_forward_time {
@@ -119,18 +119,45 @@ impl Tui {
         }
     }
 
-    fn edit(&mut self) {
-        // TODO save to a file and the date
+    fn edit(&mut self, index: &usize) {
+        let lock = self.tx_mut.lock().unwrap(); //Stop other thread
+        let calendar = 
+        match self.calendars.get_mut(*index) {
+            Some(calendar) => calendar,
+            None => return,
+        };
+        let button = 
+        match calendar.buttons.get_mut(calendar.cursor) {
+            Some(button) => button,
+            None => return,
+        };
+        let text = &button.internal_text;
+        // TODO save to a file
         self.terminal.reset();
         self.terminal.exit();
         self.terminal = Terminal::new(); // Drop the raw mode and mouse terminal
         // I decided to use the lock here to stop the other thread (causes lag to editor input)
-        let lock = self.tx_mut.lock().unwrap();
-        match edit::edit("") {
+        let text = 
+        match edit::edit(text) {
             Ok(edit) => edit,
-            Err(_) => "".to_string(),
+            Err(_) => String::new(),
         };
         drop(lock); // Drop lock and allow use of another self mut refrence
+        button.internal_text = text;
+        drop(button);
+        match calendar.get_text_button() {
+            // This is so dumb. I should not update the calendar date button here
+            Some(_) => {
+                let mut text = String::new();
+                for button in &calendar.buttons {
+                    if let ButtonType::CalanderDate(_) = button.button_data {
+                        text += &button.internal_text;
+                    }
+                }
+                calendar.get_mut_text_button().unwrap().internal_text = text;
+            },
+            None => (),
+        }
         self.terminal = Terminal::new_raw();
         self.terminal.mouse_terminal();
         self.terminal.begin();
@@ -378,6 +405,7 @@ pub struct Button {
     pub end_position: Position,
     pub bg_color: AnsiValue,
     pub fg_color: AnsiValue,
+    pub internal_text: String,
 }
 
 #[derive(Clone)]

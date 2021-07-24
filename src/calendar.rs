@@ -31,7 +31,6 @@ impl Calendar {
                 WEEKDAYS = Some(weekdays);
             }
         }
-        
         calendar.setup(config);
         calendar
     }
@@ -56,6 +55,7 @@ impl Calendar {
             end_position: Position::new(self.start.get_x() + 21, self.start.get_y()),
             bg_color: config.text_button_bg_color,
             fg_color: config.month_text_color,
+            internal_text: String::new(),
         };
         self.buttons.push(button);
         let mut position = self.start.clone();
@@ -83,6 +83,7 @@ impl Calendar {
                 end_position: Position::new(position.get_x() + 1, position.get_y()),
                 bg_color: config.date_bg_color,
                 fg_color: config.date_num_color,
+                internal_text: String::new(),
             };
             self.buttons.push(button);
             date = date.succ();
@@ -144,6 +145,24 @@ impl Calendar {
 
     pub fn get_start_date(&self) -> Date<Local> {
         self.start_date
+    }
+
+    pub fn get_text_button(&self) -> Option<&Button> {
+        for button in self.buttons.iter() {
+            if let ButtonType::TextButton(_) = button.button_data {
+                return Some(button);
+            }
+        }
+        None
+    }
+
+    pub fn get_mut_text_button(&mut self) -> Option<&mut Button> {
+        for button in self.buttons.iter_mut() {
+            if let ButtonType::TextButton(_) = button.button_data {
+                return Some(button);
+            }
+        }
+        None
     }
 }
 
